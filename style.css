@@ -5,8 +5,6 @@
   --text-primary: #ffffff;
   --text-secondary: #aaaaaa;
   --accent: #5dadec;
-  --danger: #ff5555;
-  --success: #4caf50;
 }
 
 * {
@@ -126,7 +124,7 @@ body.dark {
 
 .gifts-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 20px;
   padding: 20px;
   overflow-y: auto;
@@ -138,6 +136,9 @@ body.dark {
   padding: 16px;
   text-align: center;
   transition: transform 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .gift-card:hover {
@@ -145,23 +146,15 @@ body.dark {
   background: var(--bg-tertiary);
 }
 
-.gift-card img {
-  width: 100px;
-  height: 100px;
-  object-fit: cover;
-  border-radius: 8px;
-  margin-bottom: 12px;
-}
-
 .gift-card h4 {
-  margin-bottom: 8px;
+  margin: 8px 0 4px;
   font-size: 16px;
 }
 
-.gift-card .price {
+.price {
   font-size: 14px;
   color: var(--text-secondary);
-  margin: 6px 0;
+  margin: 4px 0;
 }
 
 .buy-btn {
@@ -178,6 +171,18 @@ body.dark {
 
 .buy-btn:hover {
   opacity: 0.9;
+}
+
+.profile-section {
+  padding: 20px;
+}
+
+.balance-info {
+  background: var(--bg-tertiary);
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-weight: 500;
 }
 
 /* Модальное окно */
