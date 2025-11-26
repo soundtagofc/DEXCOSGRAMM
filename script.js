@@ -1,5 +1,4 @@
-// === Инициализация данных ===
-const ADMIN_PASSWORD = "secret123"; // можно изменить
+const ADMIN_PASSWORD = "Dexcos123";
 
 let userData = JSON.parse(localStorage.getItem("userData")) || {
   balance: { stars: 1000, fiton: 500 },
@@ -7,137 +6,106 @@ let userData = JSON.parse(localStorage.getItem("userData")) || {
 };
 
 let giftsDB = JSON.parse(localStorage.getItem("giftsDB")) || [
-  { id: 1, name: "Золотой кот", image: "https://via.placeholder.com/100/FFD700", stars: 200, fiton: 0, quantity: 5 },
-  { id: 2, name: "Робот-помощник", image: "https://via.placeholder.com/100/8A2BE2", stars: 0, fiton: 100, quantity: 3 }
+  { id: 1, name: "Золотой кот 🐱", image: "https://em-content.zobj.net/source/apple/391/cat-face_1f431.png", stars: 200, fiton: 0, quantity: 5 },
+  { id: 2, name: "Робот-друг 🤖", image: "https://em-content.zobj.net/source/apple/391/robot_1f916.png", stars: 0, fiton: 100, quantity: 3 },
+  { id: 3, name: "Крипто-звезда ⭐", image: "https://em-content.zobj.net/source/apple/391/glowing-star_1f31f.png", stars: 150, fiton: 80, quantity: 2 }
 ];
 
-// === DOM элементы ===
 const balanceStarsEl = document.getElementById("balance-stars");
 const balanceFitonEl = document.getElementById("balance-fiton");
-const mainContent = document.getElementById("main-content");
-const adminPanel = document.getElementById("admin-panel");
+const giftsGrid = document.getElementById("gifts-grid");
+const adminModal = document.getElementById("admin-modal");
 const adminPassInput = document.getElementById("admin-pass");
 const adminActions = document.getElementById("admin-actions");
 
-// === Обновление интерфейса ===
 function updateUI() {
   balanceStarsEl.textContent = userData.balance.stars;
   balanceFitonEl.textContent = userData.balance.fiton;
   localStorage.setItem("userData", JSON.stringify(userData));
   localStorage.setItem("giftsDB", JSON.stringify(giftsDB));
+  renderGifts();
 }
 
-// === Главная страница чатов ===
-function showChats() {
-  mainContent.innerHTML = `<p>Чаты скоро будут... А пока — подарки! 🎁</p>`;
-}
-
-// === Страница подарков ===
-function showGifts() {
-  let html = `<h2>🎁 Подарки (NFT)</h2><div id="gifts-list">`;
+function renderGifts() {
+  giftsGrid.innerHTML = "";
   giftsDB.forEach(gift => {
-    if (gift.quantity > 0) {
-      html += `
-        <div class="gift">
-          <img src="${gift.image}" alt="${gift.name}">
-          <h4>${gift.name}</h4>
-          ${gift.stars > 0 ? `<p>💰 ${gift.stars} Stars</p>` : ''}
-          ${gift.fiton > 0 ? `<p>💎 ${gift.fiton} FITON</p>` : ''}
-          <button onclick="buyGift(${gift.id})">Купить</button>
-        </div>
-      `;
-    }
+    if (gift.quantity <= 0) return;
+    const card = document.createElement("div");
+    card.className = "gift-card";
+    card.innerHTML = `
+      <img src="${gift.image}" alt="${gift.name}">
+      <h4>${gift.name}</h4>
+      ${gift.stars > 0 ? `<div class="price">⭐ ${gift.stars} Stars</div>` : ''}
+      ${gift.fiton > 0 ? `<div class="price">💎 ${gift.fiton} FITON</div>` : ''}
+      <button class="buy-btn" onclick="buyGift(${gift.id})">Купить</button>
+    `;
+    giftsGrid.appendChild(card);
   });
-  html += `</div>`;
-  mainContent.innerHTML = html;
 }
 
-// === Покупка подарка ===
 function buyGift(giftId) {
   const gift = giftsDB.find(g => g.id === giftId);
-  if (!gift || gift.quantity <= 0) {
-    alert("Подарок недоступен");
-    return;
-  }
+  if (!gift || gift.quantity <= 0) return alert("Недоступно");
+  if (gift.stars > 0 && userData.balance.stars < gift.stars) return alert("Не хватает Stars!");
+  if (gift.fiton > 0 && userData.balance.fiton < gift.fiton) return alert("Не хватает FITON!");
 
-  if (gift.stars > 0 && userData.balance.stars < gift.stars) {
-    alert("Недостаточно Stars!");
-    return;
-  }
-  if (gift.fiton > 0 && userData.balance.fiton < gift.fiton) {
-    alert("Недостаточно FITON!");
-    return;
-  }
-
-  // Списание
   if (gift.stars > 0) userData.balance.stars -= gift.stars;
   if (gift.fiton > 0) userData.balance.fiton -= gift.fiton;
-
-  // Уменьшение количества
   gift.quantity--;
+  userData.gifts.push({ ...gift, boughtAt: new Date().toISOString() });
 
-  // Добавление в коллекцию
-  userData.gifts.push({ ...gift, purchaseDate: new Date().toISOString() });
-
-  alert(`Вы получили: ${gift.name}!`);
+  alert(`✅ Вы получили: ${gift.name}!`);
   updateUI();
-  showGifts();
 }
 
-// === Админка ===
+// Админка
 document.getElementById("btn-admin").addEventListener("click", () => {
-  adminPanel.classList.remove("hidden");
+  adminModal.classList.remove("hidden");
+});
+
+document.querySelector(".close").addEventListener("click", () => {
+  adminModal.classList.add("hidden");
 });
 
 document.getElementById("btn-login-admin").addEventListener("click", () => {
   if (adminPassInput.value === ADMIN_PASSWORD) {
     adminActions.classList.remove("hidden");
+    document.getElementById("admin-login").classList.add("hidden");
     adminPassInput.value = "";
   } else {
-    alert("Неверный пароль!");
+    alert("❌ Неверный пароль!");
   }
 });
 
 document.getElementById("btn-add-gift").addEventListener("click", () => {
-  const name = document.getElementById("gift-name").value;
-  const image = document.getElementById("gift-image").value || "https://via.placeholder.com/100";
+  const name = document.getElementById("gift-name").value.trim();
+  const image = document.getElementById("gift-image").value || "https://em-content.zobj.net/source/apple/391/gift_1f381.png";
   const stars = parseInt(document.getElementById("gift-stars").value) || 0;
   const fiton = parseInt(document.getElementById("gift-fiton").value) || 0;
   const qty = parseInt(document.getElementById("gift-quantity").value) || 1;
 
-  if (!name || (stars === 0 && fiton === 0)) {
-    alert("Заполните данные и укажите цену!");
-    return;
-  }
+  if (!name || (stars === 0 && fiton === 0)) return alert("Укажите название и цену!");
 
-  const newGift = {
+  giftsDB.push({
     id: Date.now(),
     name,
     image,
     stars,
     fiton,
     quantity: qty
-  };
-
-  giftsDB.push(newGift);
+  });
   updateUI();
-  alert("Подарок добавлен!");
+  alert("✅ Подарок добавлен!");
 });
 
 document.getElementById("btn-add-balance").addEventListener("click", () => {
   const addStars = parseInt(document.getElementById("add-stars").value) || 0;
   const addFiton = parseInt(document.getElementById("add-fiton").value) || 0;
-
   userData.balance.stars += addStars;
   userData.balance.fiton += addFiton;
   updateUI();
-  alert("Баланс пополнен!");
+  alert("✅ Баланс пополнен!");
 });
 
-// === Кнопки навигации ===
-document.getElementById("btn-gifts").addEventListener("click", showGifts);
-document.getElementById("btn-admin").addEventListener("click", () => {});
-
-// === Запуск ===
+// Инициализация
 updateUI();
-showChats();
