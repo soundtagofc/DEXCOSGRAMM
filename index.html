@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Telegram Web + NFT Gifts</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Telegram Web</h1>
+      <div class="wallet">
+        <span>Stars: <span id="balance-stars">0</span></span>
+        <span>FITON: <span id="balance-fiton">0</span></span>
+      </div>
+    </header>
+
+    <nav>
+      <button id="btn-gifts">🎁 Подарки (NFT)</button>
+      <button id="btn-admin">🔓 Админка</button>
+    </nav>
+
+    <main id="main-content">
+      <p>Выберите раздел выше.</p>
+    </main>
+  </div>
+
+  <!-- Админ-панель (скрыта по умолчанию) -->
+  <div id="admin-panel" class="hidden">
+    <h2>Админ-панель</h2>
+    <label>Пароль: <input type="password" id="admin-pass" placeholder="введите пароль"></label>
+    <button id="btn-login-admin">Войти</button>
+
+    <div id="admin-actions" class="hidden">
+      <h3>Добавить подарок</h3>
+      <input type="text" id="gift-name" placeholder="Название">
+      <input type="url" id="gift-image" placeholder="URL изображения">
+      <input type="number" id="gift-stars" placeholder="Цена в Stars" min="0">
+      <input type="number" id="gift-fiton" placeholder="Цена в FITON" min="0">
+      <input type="number" id="gift-quantity" placeholder="Количество" min="1">
+      <button id="btn-add-gift">Добавить</button>
+
+      <h3>Пополнить баланс</h3>
+      <input type="number" id="add-stars" placeholder="Stars" min="0">
+      <input type="number" id="add-fiton" placeholder="FITON" min="0">
+      <button id="btn-add-balance">Пополнить</button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
