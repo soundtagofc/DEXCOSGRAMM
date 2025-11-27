@@ -7,233 +7,33 @@
   --accent: #5dadec;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-body.dark {
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-}
-
-.app-container {
-  display: flex;
-  height: 100vh;
-}
-
-.sidebar {
-  width: 300px;
-  background: var(--bg-secondary);
-  display: flex;
-  flex-direction: column;
-  border-right: 1px solid #444;
-}
-
-.sidebar-header {
-  padding: 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid #444;
-}
-
-.sidebar-header h2 {
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.wallet-balance span {
-  margin-left: 12px;
-  font-weight: 500;
-}
-
-.chats {
-  flex: 1;
-  overflow-y: auto;
-}
-
-.chat {
-  display: flex;
-  padding: 12px 16px;
-  cursor: pointer;
-  border-left: 4px solid transparent;
-}
-
-.chat.active {
-  background: var(--bg-tertiary);
-  border-left: 4px solid var(--accent);
-}
-
-.chat-avatar {
-  font-size: 36px;
-  width: 50px;
-  text-align: center;
-}
-
-.chat-name {
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.chat-preview {
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-.sidebar-footer {
-  padding: 12px 16px;
-  border-top: 1px solid #444;
-}
-
-.admin-btn {
-  width: 100%;
-  padding: 8px;
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.main-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-primary);
-}
-
-.chat-header {
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  border-bottom: 1px solid #444;
-}
-
-.chat-header .chat-avatar {
-  font-size: 32px;
-  margin-right: 12px;
-}
-
-.chat-title {
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.gifts-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 20px;
-  padding: 20px;
-  overflow-y: auto;
-}
-
-.gift-card {
-  background: var(--bg-secondary);
-  border-radius: 12px;
-  padding: 16px;
-  text-align: center;
-  transition: transform 0.2s;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.gift-card:hover {
-  transform: translateY(-4px);
-  background: var(--bg-tertiary);
-}
-
-.gift-card h4 {
-  margin: 8px 0 4px;
-  font-size: 16px;
-}
-
-.price {
-  font-size: 14px;
-  color: var(--text-secondary);
-  margin: 4px 0;
-}
-
-.buy-btn {
-  background: var(--accent);
-  color: white;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  width: 100%;
-  margin-top: 8px;
-}
-
-.buy-btn:hover {
-  opacity: 0.9;
-}
-
-.profile-section {
-  padding: 20px;
-}
-
-.balance-info {
-  background: var(--bg-tertiary);
-  padding: 12px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  font-weight: 500;
-}
-
-.modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.7);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: var(--bg-secondary);
-  padding: 24px;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 500px;
-  color: var(--text-primary);
-}
-
-.close {
-  float: right;
-  font-size: 24px;
-  cursor: pointer;
-  color: var(--text-secondary);
-}
-
-.modal-content input,
-.modal-content button {
-  width: 100%;
-  padding: 10px;
-  margin: 8px 0;
-  border-radius: 6px;
-  border: 1px solid #555;
-  background: var(--bg-tertiary);
-  color: white;
-}
-
-.price-row {
-  display: flex;
-  gap: 8px;
-}
-
-.price-row input {
-  flex: 1;
-}
-
-.hidden {
-  display: none !important;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, sans-serif; }
+body.dark { background: var(--bg-primary); color: var(--text-primary); }
+.app-container { display: flex; height: 100vh; }
+.sidebar { width: 280px; background: var(--bg-secondary); display: flex; flex-direction: column; border-right: 1px solid #444; }
+.sidebar-header { padding: 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; }
+.sidebar-header h2 { font-size: 18px; }
+.wallet-balance span { margin-left: 10px; font-weight: 500; }
+.chats { flex: 1; overflow-y: auto; }
+.chat { padding: 12px 16px; cursor: pointer; border-left: 4px solid transparent; display: flex; align-items: center; }
+.chat:hover { background: var(--bg-tertiary); }
+.chat.active { background: var(--bg-tertiary); border-left: 4px solid var(--accent); }
+.chat-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; margin-right: 12px; background: #555; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+.chat-info { flex: 1; }
+.chat-name { font-weight: 600; }
+.chat-preview { font-size: 12px; color: var(--text-secondary); }
+.sidebar-footer { padding: 12px 16px; border-top: 1px solid #444; }
+.admin-btn { width: 100%; padding: 8px; background: var(--bg-tertiary); color: white; border: none; border-radius: 4px; cursor: pointer; }
+.main-content { flex: 1; background: var(--bg-primary); overflow-y: auto; }
+.chat-header { padding: 16px; display: flex; align-items: center; border-bottom: 1px solid #444; }
+.chat-header img { width: 40px; height: 40px; border-radius: 50%; margin-right: 12px; }
+.chat-title { font-size: 18px; font-weight: 600; }
+.gifts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; padding: 16px; }
+.gift-card { background: var(--bg-secondary); border-radius: 8px; padding: 12px; text-align: center; }
+.gift-card img { width: 80px; height: 80px; object-fit: contain; margin-bottom: 8px; }
+.buy-btn { background: var(--accent); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 8px; }
+.modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+.modal-content { background: var(--bg-secondary); padding: 20px; border-radius: 8px; width: 90%; max-width: 450px; color: white; }
+.close { float: right; font-size: 24px; cursor: pointer; color: var(--text-secondary); }
+.modal-content input, .modal-content button { width: 100%; padding: 8px; margin: 6px 0; border-radius: 4px; border: 1px solid #555; background: var(--bg-tertiary); color: white; }
+.hidden { display: none !important; }
