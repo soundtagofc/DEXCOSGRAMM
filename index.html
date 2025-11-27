@@ -3,58 +3,85 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Telegram</title>
+  <title>Telegram NFT Gifts</title>
   <link rel="stylesheet" href="style.css" />
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 </head>
-<body>
-  <div id="app-container">
+<body class="dark">
+  <div class="app-container">
     <!-- Сайдбар -->
-    <div id="sidebar">
+    <aside class="sidebar">
       <div class="sidebar-header">
-        <div class="sidebar-avatar">
-          <span>👤</span>
+        <h2>💬 Telegram</h2>
+        <div class="wallet-balance">
+          <span>⭐ <span id="balance-stars">0</span></span>
+          <span>💎 <span id="balance-fiton">0</span></span>
         </div>
-        <div class="sidebar-title">Telegram</div>
-        <div class="sidebar-balance">⭐ <span id="balance-stars">0</span></div>
       </div>
-      <div class="chats-list" id="chats-list"></div>
+      <div class="chats" id="chats-list">
+        <div class="chat active" data-view="gifts">
+          <div class="chat-avatar">🎁</div>
+          <div>
+            <div class="chat-name">Магазин</div>
+            <div class="chat-preview">Купите NFT</div>
+          </div>
+        </div>
+        <div class="chat" data-view="cases">
+          <div class="chat-avatar">📦</div>
+          <div>
+            <div class="chat-name">Кейсы</div>
+            <div class="chat-preview">Откройте редкий NFT!</div>
+          </div>
+        </div>
+        <div class="chat" data-view="profile">
+          <div class="chat-avatar">👤</div>
+          <div>
+            <div class="chat-name">Профиль</div>
+            <div class="chat-preview">Ваши подарки</div>
+          </div>
+        </div>
+      </div>
       <div class="sidebar-footer">
-        <button id="btn-admin" class="sidebar-button">🔒 Админка</button>
+        <button id="btn-admin" class="admin-btn">🔒 Админка</button>
       </div>
-    </div>
+    </aside>
 
     <!-- Основной контент -->
-    <div id="main-content">
-      <div class="content-placeholder">Выберите раздел</div>
-    </div>
+    <main class="main-content" id="main-content">
+      <!-- Динамический контент -->
+    </main>
   </div>
 
   <!-- Админ-панель -->
-  <div id="admin-modal" class="modal">
+  <div id="admin-modal" class="modal hidden">
     <div class="modal-content">
-      <span class="modal-close">&times;</span>
-      <h3>🔐 Админ-панель</h3>
+      <span class="close">&times;</span>
+      <h2>🔐 Админ-панель</h2>
       <div id="admin-login">
-        <input type="password" id="admin-pass" placeholder="Пароль" />
+        <input type="password" id="admin-pass" placeholder="Секретный пароль" />
         <button id="btn-login-admin">Войти</button>
       </div>
       <div id="admin-actions" class="hidden">
-        <div class="form-group">
-          <label>ID пользователя</label>
-          <input type="text" id="admin-target-id" placeholder="user_xxx" />
+        <h3>➕ Добавить подарок</h3>
+        <input type="text" id="gift-name" placeholder="Название подарка" />
+        <input type="url" id="url1" placeholder="URL модели 1 (обязательно)" />
+        <input type="url" id="url2" placeholder="URL модели 2 (опционально)" />
+        <input type="url" id="url3" placeholder="URL модели 3 (опционально)" />
+        <div class="price-row">
+          <input type="number" id="gift-stars" placeholder="Цена в Stars" min="0" value="100" />
+          <input type="number" id="gift-fiton" placeholder="Цена в FITON" min="0" value="0" />
         </div>
-        <div class="form-group">
-          <label>Подарок</label>
-          <select id="admin-gift-select"></select>
+        <input type="number" id="gift-total" placeholder="Общее количество (например, 100)" min="1" value="100" />
+        <button id="btn-add-gift">Добавить в базу</button>
+
+        <h3>💰 Пополнить баланс</h3>
+        <div class="price-row">
+          <input type="number" id="add-stars" placeholder="Stars" min="0" />
+          <input type="number" id="add-fiton" placeholder="FITON" min="0" />
         </div>
-        <button id="btn-give-gift">Выдать подарок</button>
-        <div class="form-group">
-          <label>Баланс (Stars)</label>
-          <input type="number" id="admin-add-stars" value="100" min="0" />
-        </div>
-        <button id="btn-add-balance">Пополнить баланс</button>
+        <button id="btn-add-balance">Пополнить</button>
       </div>
     </div>
   </div>
