@@ -1,89 +1,105 @@
+/* Telegram Web — точная стилизация */
 :root {
-  --bg-primary: #1e1e1e;
-  --bg-secondary: #2a2a2a;
-  --bg-tertiary: #333333;
-  --text-primary: #ffffff;
-  --text-secondary: #aaaaaa;
-  --accent: #5dadec;
-  --danger: #ff5555;
+  --tg-theme-bg-color: #212121;
+  --tg-theme-secondary-bg-color: #2f2f2f;
+  --tg-theme-text-color: #ffffff;
+  --tg-theme-hint-color: #aaaaaa;
+  --tg-theme-link-color: #5682a3;
+  --tg-theme-button-color: #5682a3;
+  --tg-theme-button-hover: #4a708f;
+  --border-radius: 8px;
+  --avatar-size: 48px;
 }
 
-* {
+body {
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-body.dark {
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--tg-theme-bg-color);
+  color: var(--tg-theme-text-color);
   height: 100vh;
   overflow: hidden;
 }
 
-.app-container {
+#app-container {
   display: flex;
   height: 100vh;
 }
 
-.sidebar {
-  width: 280px;
-  background: var(--bg-secondary);
+/* Сайдбар */
+#sidebar {
+  width: 300px;
+  background-color: var(--tg-theme-secondary-bg-color);
   display: flex;
   flex-direction: column;
-  border-right: 1px solid #444;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .sidebar-header {
-  padding: 18px 16px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #444;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.sidebar-header h2 {
+.sidebar-avatar {
+  width: var(--avatar-size);
+  height: var(--avatar-size);
+  border-radius: 50%;
+  background: linear-gradient(135deg, #5682a3, #3a5f7d);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
   font-size: 20px;
-  font-weight: 600;
+  margin-right: 12px;
+  flex-shrink: 0;
 }
 
-.wallet-balance span {
-  margin-left: 10px;
+.sidebar-title {
+  font-size: 19px;
+  font-weight: 500;
+  flex: 1;
+}
+
+.sidebar-balance {
+  font-size: 15px;
+  color: var(--tg-theme-text-color);
   font-weight: 500;
 }
 
-.chats {
+.chats-list {
   flex: 1;
   overflow-y: auto;
 }
 
-.chat {
+.chat-item {
   display: flex;
-  padding: 12px 16px;
+  padding: 10px 16px;
   cursor: pointer;
-  border-left: 4px solid transparent;
+  border-left: 3px solid transparent;
 }
 
-.chat:hover {
-  background: var(--bg-tertiary);
+.chat-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
 }
 
-.chat.active {
-  background: var(--bg-tertiary);
-  border-left: 4px solid var(--accent);
+.chat-item.active {
+  background-color: rgba(86, 130, 163, 0.15);
+  border-left: 3px solid var(--tg-theme-button-color);
 }
 
 .chat-avatar {
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  background: #444;
+  background: linear-gradient(135deg, #5682a3, #3a5f7d);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
-  margin-right: 14px;
+  color: white;
+  font-size: 18px;
+  margin-right: 12px;
   flex-shrink: 0;
 }
 
@@ -92,64 +108,68 @@ body.dark {
 }
 
 .chat-name {
-  font-weight: 600;
-  font-size: 15px;
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-desc {
+  font-size: 14px;
+  color: var(--tg-theme-hint-color);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .sidebar-footer {
-  padding: 14px 16px;
-  border-top: 1px solid #444;
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.admin-btn {
+.sidebar-button {
   width: 100%;
   padding: 10px;
-  background: var(--bg-tertiary);
+  background: var(--tg-theme-button-color);
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--border-radius);
   cursor: pointer;
   font-weight: 500;
+  font-size: 15px;
 }
 
-.main-content {
+.sidebar-button:hover {
+  background: var(--tg-theme-button-hover);
+}
+
+/* Основной контент */
+#main-content {
   flex: 1;
-  background: var(--bg-primary);
+  padding: 20px;
   overflow-y: auto;
 }
 
-.chat-header {
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  border-bottom: 1px solid #444;
-}
-
-.chat-header img {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  margin-right: 12px;
-}
-
-.chat-title {
+.content-placeholder {
+  color: var(--tg-theme-hint-color);
+  text-align: center;
+  padding-top: 50px;
   font-size: 18px;
-  font-weight: 600;
 }
 
+/* Карточки подарков */
 .gifts-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 20px;
-  padding: 20px;
+  margin-top: 20px;
 }
 
 .gift-card {
-  background: var(--bg-secondary);
-  border-radius: 12px;
+  background: var(--tg-theme-secondary-bg-color);
+  border-radius: var(--border-radius);
   padding: 16px;
   text-align: center;
   transition: transform 0.2s;
@@ -157,43 +177,45 @@ body.dark {
 
 .gift-card:hover {
   transform: translateY(-4px);
-  background: var(--bg-tertiary);
 }
 
 .gift-card img {
-  width: 80px;
-  height: 80px;
+  width: 100px;
+  height: 100px;
   object-fit: contain;
   margin-bottom: 12px;
 }
 
-.gift-card h4 {
-  margin: 8px 0;
+.gift-card h3 {
   font-size: 16px;
-}
-
-.price {
-  font-size: 14px;
-  color: var(--text-secondary);
-  margin: 4px 0;
-}
-
-.buy-btn {
-  background: var(--accent);
-  color: white;
-  border: none;
-  padding: 8px;
-  border-radius: 6px;
-  cursor: pointer;
-  width: 100%;
-  margin-top: 8px;
+  margin: 8px 0;
   font-weight: 500;
 }
 
-.buy-btn:hover {
-  opacity: 0.9;
+.gift-price {
+  font-size: 14px;
+  color: var(--tg-theme-hint-color);
+  margin: 6px 0;
 }
 
+.btn {
+  background: var(--tg-theme-button-color);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-weight: 500;
+  width: 100%;
+  margin-top: 8px;
+  font-size: 15px;
+}
+
+.btn:hover {
+  background: var(--tg-theme-button-hover);
+}
+
+/* Модальное окно */
 .modal {
   display: none;
   position: fixed;
@@ -201,7 +223,7 @@ body.dark {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0,0,0,0.7);
+  background: rgba(0, 0, 0, 0.6);
   justify-content: center;
   align-items: center;
   z-index: 1000;
@@ -212,37 +234,57 @@ body.dark {
 }
 
 .modal-content {
-  background: var(--bg-secondary);
+  background: var(--tg-theme-bg-color);
   padding: 24px;
   border-radius: 12px;
   width: 90%;
-  max-width: 500px;
-  color: var(--text-primary);
+  max-width: 480px;
+  color: var(--tg-theme-text-color);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.close {
+.modal-close {
   float: right;
   font-size: 28px;
   cursor: pointer;
-  color: var(--text-secondary);
+  color: var(--tg-theme-hint-color);
 }
 
-.close:hover {
-  color: var(--text-primary);
+.modal-close:hover {
+  color: var(--tg-theme-text-color);
 }
 
-.modal-content input,
-.modal-content button,
-.modal-content select {
+.form-group {
+  margin: 16px 0;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.form-group input,
+.form-group select {
   width: 100%;
   padding: 10px;
-  margin: 8px 0;
-  border-radius: 6px;
-  border: 1px solid #555;
-  background: var(--bg-tertiary);
-  color: white;
+  border-radius: var(--border-radius);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--tg-theme-secondary-bg-color);
+  color: var(--tg-theme-text-color);
+  font-size: 15px;
 }
 
 .hidden {
   display: none !important;
+}
+
+/* Анимации */
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+#main-content > * {
+  animation: slideIn 0.3s ease-out;
 }
