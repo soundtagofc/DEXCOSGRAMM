@@ -13,7 +13,7 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 const ADMIN_PASSWORD = "secret123";
 
-// Генерация уникального ID пользователя
+// Уникальный ID пользователя
 let userId = localStorage.getItem("userId");
 if (!userId) {
   userId = "user_" + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
@@ -23,23 +23,20 @@ if (!userId) {
 let currentUser = null;
 let allUsers = {};
 let giftsDB = [];
-let marketRates = {};
 
 const balanceStarsEl = document.getElementById("balance-stars");
 const mainContent = document.getElementById("main-content");
 
-// === Инициализация приложения ===
+// === Инициализация ===
 async function initApp() {
   await ensureUserProfile();
   loadAllUsers();
   loadGifts();
-  loadMarketRates();
-  startCryptoMarket();
   initSidebar();
   showMyProfile();
 }
 
-// === Создание профиля при первом заходе ===
+// === Создание профиля ===
 async function ensureUserProfile() {
   const userRef = database.ref(`users/${userId}`);
   const snapshot = await userRef.once("value");
@@ -71,13 +68,7 @@ function loadGifts() {
   });
 }
 
-function loadMarketRates() {
-  database.ref("marketRates").on("value", (snapshot) => {
-    marketRates = snapshot.val() || {};
-  });
-}
-
-// === Обновление UI ===
+// === UI ===
 function updateUserUI() {
   if (!currentUser) return;
   balanceStarsEl.textContent = currentUser.balance.stars;
@@ -96,16 +87,12 @@ function showMyProfile() {
   <div class="gifts-grid">`;
 
   currentUser.gifts.forEach((gift, i) => {
-    const bg = gift.background || "var(--bg-secondary)";
-    const rate = marketRates[gift.giftKey] ? marketRates[gift.giftKey].toFixed(2) : "1.00";
     html += `
-      <div class="gift-card" style="background:${bg};">
+      <div class="gift-card">
         <img src="${gift.selectedModel}" onerror="this.src='https://placehold.co/80x80/555/white?text=?'">
         <div>${gift.name}</div>
         <div style="font-size:12px;">№${gift.serial}</div>
-        <div style="font-size:12px;color:#aaa;">Курс: ${rate}</div>
-        ${!gift.enhanced ? `<button class="buy-btn" onclick="enhanceGift(${i})">Улучшить (50⭐)</button>` : ''}
-        <button class="buy-btn" style="background:#ff5555;" onclick="sellGift(${i})">Продать</button>
+        <button class="buy-btn" onclick="selfGiveGift('${gift.giftKey}')">Выдать себе</button>
       </div>
     `;
   });
@@ -140,23 +127,20 @@ function showUserProfile(uid) {
   <div style="padding:16px;">
     <p><strong>ID:</strong> ${uid}</p>
     <p><strong>Баланс:</strong> ⭐ ${user.balance?.stars || 0}</p>
-    <p><strong>Подарков:</strong> ${user.gifts?.length || 0}</p>
-    ${user.gifts?.map(g => `<div>🎁 ${g.name} #${g.serial}</div>`).join("") || ""}
+    <button onclick="adminAddBalance('${uid}')" style="background:#4CAF50;color:white;border:none;padding:8px;border-radius:4px;margin-top:10px;">+ Баланс</button>
   </div>`;
   mainContent.innerHTML = html;
 }
 
 function showGiftsPage() {
-  let html = `<div class="chat-header"><div class="chat-title">🎁 Магазин</div></div><div class="gifts-grid">`;
+  let html = `<div class="chat-header"><div class="chat-title">🎁 Подарки</div></div><div class="gifts-grid">`;
   giftsDB.forEach(gift => {
-    const remaining = gift.totalSupply - (gift.currentMinted || 0);
     html += `
       <div class="gift-card">
         <img src="${gift.models?.[0] || 'https://placehold.co/80x80/555/white?text=?'}">
         <div>${gift.name}</div>
         <div class="price">⭐ ${gift.stars || 0}</div>
-        <div style="font-size:12px;">${remaining}/${gift.totalSupply}</div>
-        ${remaining > 0 ? `<button class="buy-btn" onclick="buyGift('${gift.key}')">Купить</button>` : '<button disabled>Нет в наличии</button>'}
+        <button class="buy-btn" onclick="selfGiveGift('${gift.key}')">Выдать себе</button>
       </div>
     `;
   });
@@ -164,22 +148,7 @@ function showGiftsPage() {
   mainContent.innerHTML = html;
 }
 
-function showCasesPage() {
-  let html = `<div class="chat-header"><div class="chat-title">📦 Кейсы</div></div><div class="gifts-grid">`;
-  [50, 100, 150].forEach(price => {
-    html += `
-      <div class="gift-card">
-        <div style="font-size:32px;margin:10px 0;">📦</div>
-        <div>Кейс за ${price}⭐</div>
-        <button class="buy-btn" onclick="openCase(${price})">Открыть</button>
-      </div>
-    `;
-  });
-  html += `</div>`;
-  mainContent.innerHTML = html;
-}
-
-// === Функции пользователя ===
+// === Функции ===
 async function editProfile() {
   const nick = prompt("Ваш ник:", currentUser.nickname);
   const avatar = prompt("URL аватарки:", currentUser.avatar);
@@ -193,160 +162,40 @@ async function editProfile() {
   showMyProfile();
 }
 
-async function buyGift(giftKey) {
-  const gift = giftsDB.find(g => g.key === giftKey);
-  if (!gift || (gift.currentMinted || 0) >= gift.totalSupply) return alert("Нет в наличии");
-  if (currentUser.balance.stars < gift.stars) return alert("Не хватает Stars");
-
-  currentUser.balance.stars -= gift.stars;
-  const serial = (gift.currentMinted || 0) + 1;
-  await database.ref(`gifts/${giftKey}/currentMinted`).set(serial);
-
-  currentUser.gifts.push({
-    giftKey,
-    name: gift.name,
-    models: gift.models,
-    serial: serial,
-    source: "shop",
-    enhanced: false,
-    selectedModel: gift.models[0]
-  });
-
-  await database.ref(`users/${userId}`).update({
-    balance: currentUser.balance,
-    gifts: currentUser.gifts
-  });
-  updateUserUI();
-  alert(`✅ Куплено: ${gift.name} #${serial}`);
-  showGiftsPage();
-}
-
-async function openCase(price) {
-  if (currentUser.balance.stars < price) return alert(`Нужно ${price} Stars`);
-  currentUser.balance.stars -= price;
-  updateUserUI();
-
-  const available = giftsDB.filter(g => (g.currentMinted || 0) < g.totalSupply);
-  if (available.length === 0) return alert("Нет подарков");
-
-  const gift = available[Math.floor(Math.random() * available.length)];
-  const serial = (gift.currentMinted || 0) + 1;
-  await database.ref(`gifts/${gift.key}/currentMinted`).set(serial);
-
-  currentUser.gifts.push({
-    giftKey: gift.key,
-    name: gift.name,
-    models: gift.models,
-    serial: serial,
-    source: "case",
-    enhanced: false,
-    selectedModel: gift.models[0]
-  });
-
-  await database.ref(`users/${userId}`).update({
-    balance: currentUser.balance,
-    gifts: currentUser.gifts
-  });
-  alert(`🎉 Выпало: ${gift.name} #${serial}`);
-  showCasesPage();
-}
-
-async function enhanceGift(index) {
-  const gift = currentUser.gifts[index];
-  if (!gift || gift.enhanced || currentUser.balance.stars < 50) return;
-  currentUser.balance.stars -= 50;
-
-  gift.enhanced = true;
-  gift.selectedModel = gift.models[Math.floor(Math.random() * gift.models.length)];
-  gift.background = [
-    "radial-gradient(circle, #ff9a9e, #fad0c4)",
-    "radial-gradient(circle, #a1c4fd, #c2e9fb)",
-    "radial-gradient(circle, #ffecd2, #fcb69f)",
-    "radial-gradient(circle, #8fd3f4, #43e97b)",
-    "radial-gradient(circle, #d299c2, #fef9d7)"
-  ][Math.floor(Math.random() * 5)];
-
-  await database.ref(`users/${userId}`).update({
-    balance: currentUser.balance,
-    gifts: currentUser.gifts
-  });
-  updateUserUI();
-  alert("🚀 Улучшено!");
-  showMyProfile();
-}
-
-async function sellGift(index) {
-  const gift = currentUser.gifts[index];
-  if (!gift) return;
-
-  const basePrice = giftsDB.find(g => g.key === gift.giftKey)?.stars || 0;
-  const rate = marketRates[gift.giftKey] || 1.0;
-  const mult = gift.source === "case" ? (1 + Math.random() * 0.5) : 0.5;
-  const final = Math.floor(basePrice * rate * mult);
-
-  currentUser.balance.stars += final;
-  currentUser.gifts.splice(index, 1);
-
-  await database.ref(`users/${userId}`).update({
-    balance: currentUser.balance,
-    gifts: currentUser.gifts
-  });
-  updateUserUI();
-  alert(`💰 Продано за ${final} Stars! (Курс: ${rate.toFixed(2)})`);
-  showMyProfile();
-}
-
-// === Админка ===
-async function adminGiveGift() {
-  const uid = document.getElementById("admin-target-id").value.trim();
-  const giftKey = document.getElementById("admin-gift-key").value.trim();
-  if (!allUsers[uid]) return alert("Пользователь не найден");
+async function selfGiveGift(giftKey) {
   const gift = giftsDB.find(g => g.key === giftKey);
   if (!gift) return alert("Подарок не найден");
 
   const serial = (gift.currentMinted || 0) + 1;
   await database.ref(`gifts/${giftKey}/currentMinted`).set(serial);
 
-  const userRef = database.ref(`users/${uid}`);
-  const userData = (await userRef.once("value")).val();
-  userData.gifts = userData.gifts || [];
-  userData.gifts.push({
+  currentUser.gifts.push({
     giftKey,
     name: gift.name,
     models: gift.models,
     serial: serial,
-    source: "admin",
-    enhanced: false,
+    source: "self",
     selectedModel: gift.models[0]
   });
-  await userRef.update({ gifts: userData.gifts });
-  alert("✅ Подарок выдан!");
+
+  await database.ref(`users/${userId}`).update({
+    gifts: currentUser.gifts
+  });
+  alert(`✅ Выдано: ${gift.name} #${serial}`);
+  showMyProfile();
 }
 
-async function adminAddBalance() {
-  const uid = document.getElementById("admin-target-id2").value.trim();
-  const stars = parseInt(document.getElementById("admin-add-stars").value) || 0;
-  if (!allUsers[uid]) return alert("Пользователь не найден");
+async function adminAddBalance(uid) {
+  const stars = prompt("Сколько Stars добавить?", "100");
+  if (stars === null) return;
+  const amount = parseInt(stars);
+  if (isNaN(amount)) return alert("Введите число");
 
   const userRef = database.ref(`users/${uid}/balance`);
   const balance = (await userRef.once("value")).val() || { stars: 0 };
-  balance.stars += stars;
+  balance.stars += amount;
   await userRef.set(balance);
-  alert("✅ Баланс пополнен!");
-}
-
-// === Крипто-курс (как у настоящей крипты) ===
-function startCryptoMarket() {
-  setInterval(async () => {
-    giftsDB.forEach(async (gift) => {
-      const current = marketRates[gift.key] || 1.0;
-      // Волатильность: -5% до +5% каждые 10 сек
-      const change = (Math.random() - 0.5) * 0.1;
-      const newRate = Math.max(0.1, current + change);
-      marketRates[gift.key] = newRate;
-      await database.ref(`marketRates/${gift.key}`).set(newRate);
-    });
-  }, 10000); // каждые 10 секунд
+  alert(`✅ Баланс пополнен на ${amount} Stars!`);
 }
 
 // === Сайдбар ===
@@ -355,8 +204,7 @@ function initSidebar() {
   chats.innerHTML = `
     <div class="chat active" onclick="showMyProfile()">👤 Мой профиль</div>
     <div class="chat" onclick="showUserList()">👥 Пользователи</div>
-    <div class="chat" onclick="showGiftsPage()">🎁 Магазин</div>
-    <div class="chat" onclick="showCasesPage()">📦 Кейсы</div>
+    <div class="chat" onclick="showGiftsPage()">🎁 Подарки</div>
   `;
 }
 
