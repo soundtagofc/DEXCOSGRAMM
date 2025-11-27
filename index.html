@@ -3,80 +3,58 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>NFT Telegram</title>
+  <title>Telegram</title>
   <link rel="stylesheet" href="style.css" />
-  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 </head>
-<body class="dark">
-  <div class="app-container">
+<body>
+  <div id="app-container">
     <!-- Сайдбар -->
-    <aside class="sidebar">
+    <div id="sidebar">
       <div class="sidebar-header">
-        <h2>🎮 NFT Chat</h2>
-        <div class="wallet-balance">
-          <span>⭐ <span id="balance-stars">0</span></span>
+        <div class="sidebar-avatar">
+          <span>👤</span>
         </div>
+        <div class="sidebar-title">Telegram</div>
+        <div class="sidebar-balance">⭐ <span id="balance-stars">0</span></div>
       </div>
-      <div class="chats" id="chats-list">
-        <div class="chat active" data-view="profile">
-          <div class="chat-avatar">👤</div>
-          <div class="chat-info">
-            <div class="chat-name">Мой профиль</div>
-          </div>
-        </div>
-        <div class="chat" data-view="users">
-          <div class="chat-avatar">👥</div>
-          <div class="chat-info">
-            <div class="chat-name">Пользователи</div>
-          </div>
-        </div>
-        <div class="chat" data-view="gifts">
-          <div class="chat-avatar">🎁</div>
-          <div class="chat-info">
-            <div class="chat-name">Подарки</div>
-          </div>
-        </div>
-        <div class="chat" data-view="cases">
-          <div class="chat-avatar">📦</div>
-          <div class="chat-info">
-            <div class="chat-name">Кейсы</div>
-          </div>
-        </div>
-      </div>
+      <div class="chats-list" id="chats-list"></div>
       <div class="sidebar-footer">
-        <button id="btn-admin" class="admin-btn">🔒 Админка</button>
+        <button id="btn-admin" class="sidebar-button">🔒 Админка</button>
       </div>
-    </aside>
+    </div>
 
     <!-- Основной контент -->
-    <main class="main-content" id="main-content">
-      <div style="padding: 30px; text-align: center; color: #aaa;">
-        <p>Загрузка...</p>
-      </div>
-    </main>
+    <div id="main-content">
+      <div class="content-placeholder">Выберите раздел</div>
+    </div>
   </div>
 
   <!-- Админ-панель -->
   <div id="admin-modal" class="modal">
     <div class="modal-content">
-      <span class="close">&times;</span>
-      <h2>🔐 Админ-панель</h2>
+      <span class="modal-close">&times;</span>
+      <h3>🔐 Админ-панель</h3>
       <div id="admin-login">
-        <input type="password" id="admin-pass" placeholder="Секретный пароль" />
+        <input type="password" id="admin-pass" placeholder="Пароль" />
         <button id="btn-login-admin">Войти</button>
       </div>
       <div id="admin-actions" class="hidden">
-        <h3>👤 Выдать подарок</h3>
-        <input type="text" id="admin-target-id" placeholder="ID пользователя" />
-        <select id="admin-gift-select"></select>
-        <button id="btn-give-gift">Выдать</button>
-
-        <h3>💰 Пополнить баланс</h3>
-        <input type="text" id="admin-target-id2" placeholder="ID пользователя" />
-        <input type="number" id="admin-add-stars" placeholder="Stars" min="0" value="100" />
-        <button id="btn-add-balance">Пополнить</button>
+        <div class="form-group">
+          <label>ID пользователя</label>
+          <input type="text" id="admin-target-id" placeholder="user_xxx" />
+        </div>
+        <div class="form-group">
+          <label>Подарок</label>
+          <select id="admin-gift-select"></select>
+        </div>
+        <button id="btn-give-gift">Выдать подарок</button>
+        <div class="form-group">
+          <label>Баланс (Stars)</label>
+          <input type="number" id="admin-add-stars" value="100" min="0" />
+        </div>
+        <button id="btn-add-balance">Пополнить баланс</button>
       </div>
     </div>
   </div>
