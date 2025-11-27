@@ -13,7 +13,6 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 const ADMIN_PASSWORD = "secret123";
 
-// Генерация уникального ID
 let userId = localStorage.getItem("userId");
 if (!userId) {
   userId = "user_" + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
@@ -32,11 +31,11 @@ async function initApp() {
   await ensureUserProfile();
   loadAllUsers();
   loadGifts();
-  setupNavigation();
+  renderSidebar();
   showMyProfile();
 }
 
-// === АВТОМАТИЧЕСКОЕ СОЗДАНИЕ ПРОФИЛЯ ===
+// === АВТОПРОФИЛЬ ===
 async function ensureUserProfile() {
   const userRef = database.ref(`users/${userId}`);
   const snapshot = await userRef.once("value");
@@ -45,16 +44,16 @@ async function ensureUserProfile() {
   } else {
     currentUser = {
       nickname: "User_" + userId.split('_')[1].toUpperCase(),
-      avatar: "https://placehold.co/100x100/444/white?text=👤",
+      avatar: "👤",
       balance: { stars: 1000 },
       gifts: []
     };
     await userRef.set(currentUser);
   }
-  updateUserUI();
+  balanceStarsEl.textContent = currentUser.balance.stars;
 }
 
-// === ЗАГРУЗКА ДАННЫХ ===
+// === ЗАГРУЗКА ===
 function loadAllUsers() {
   database.ref("users").on("value", (snapshot) => {
     allUsers = snapshot.val() || {};
@@ -66,7 +65,6 @@ function loadGifts() {
     const data = snapshot.val();
     giftsDB = data ? Object.keys(data).map(key => ({ ...data[key], key })) : [];
     
-    // Обновляем админку
     const select = document.getElementById("admin-gift-select");
     if (select) {
       select.innerHTML = "";
@@ -80,19 +78,44 @@ function loadGifts() {
   });
 }
 
-// === UI ===
-function updateUserUI() {
-  if (currentUser) {
-    balanceStarsEl.textContent = currentUser.balance.stars;
-  }
-}
-
-function setupNavigation() {
-  document.querySelectorAll(".chat").forEach(el => {
+// === САЙДБАР ===
+function renderSidebar() {
+  const chatsList = document.getElementById("chats-list");
+  chatsList.innerHTML = `
+    <div class="chat-item active" data-view="profile">
+      <div class="chat-avatar">👤</div>
+      <div class="chat-info">
+        <div class="chat-name">Мой профиль</div>
+        <div class="chat-desc">Ваши NFT-подарки</div>
+      </div>
+    </div>
+    <div class="chat-item" data-view="users">
+      <div class="chat-avatar">👥</div>
+      <div class="chat-info">
+        <div class="chat-name">Пользователи</div>
+        <div class="chat-desc">Список всех участников</div>
+      </div>
+    </div>
+    <div class="chat-item" data-view="gifts">
+      <div class="chat-avatar">🎁</div>
+      <div class="chat-info">
+        <div class="chat-name">Подарки</div>
+        <div class="chat-desc">Купить или улучшить</div>
+      </div>
+    </div>
+    <div class="chat-item" data-view="cases">
+      <div class="chat-avatar">📦</div>
+      <div class="chat-info">
+        <div class="chat-name">Кейсы</div>
+        <div class="chat-desc">Откройте редкий NFT</div>
+      </div>
+    </div>
+  `;
+  
+  document.querySelectorAll(".chat-item").forEach(el => {
     el.addEventListener("click", () => {
-      document.querySelectorAll(".chat").forEach(c => c.classList.remove("active"));
+      document.querySelectorAll(".chat-item").forEach(c => c.classList.remove("active"));
       el.classList.add("active");
-      
       const view = el.dataset.view;
       if (view === "profile") showMyProfile();
       else if (view === "users") showUserList();
@@ -104,76 +127,70 @@ function setupNavigation() {
 
 // === СТРАНИЦЫ ===
 function showMyProfile() {
-  let html = `
+  mainContent.innerHTML = `
     <div class="chat-header">
-      <img src="${currentUser.avatar}" onerror="this.src='https://placehold.co/100x100/444/white?text=👤'">
-      <div>
-        <div class="chat-title">${currentUser.nickname}</div>
-        <div style="font-size:13px;color:#aaa;">ID: ${userId}</div>
-      </div>
-      <button onclick="editProfile()" style="margin-left:auto;background:#444;border:none;color:white;padding:6px 12px;border-radius:4px;">✏️</button>
+      <h2>👤 Мой профиль</h2>
     </div>
-    <div style="padding:20px;">
-      <h3>💰 Баланс</h3>
-      <p>⭐ Stars: ${currentUser.balance.stars}</p>
-      
+    <div style="margin-top:20px;">
+      <p><strong>Ник:</strong> ${currentUser.nickname}</p>
+      <p><strong>ID:</strong> ${userId}</p>
+      <p><strong>Баланс:</strong> ⭐ ${currentUser.balance.stars}</p>
       <h3 style="margin-top:20px;">🎁 Мои подарки (${currentUser.gifts.length})</h3>
       ${currentUser.gifts.length === 0 ? 
-        "<p style='color:#aaa;'>Нет подарков</p>" : 
-        currentUser.gifts.map(g => `<div style="margin:10px 0;padding:10px;background:#333;border-radius:8px;">🎁 ${g.name} #${g.serial}</div>`).join("")
+        "<p style='color:#aaaaaa;'>Нет подарков</p>" : 
+        currentUser.gifts.map(g => `<div style="margin:10px 0;padding:12px;background:#2f2f2f;border-radius:8px;">${g.name} #${g.serial}</div>`).join("")
       }
     </div>
   `;
-  mainContent.innerHTML = html;
 }
 
 function showUserList() {
-  let html = `<div class="chat-header"><div class="chat-title">👥 Пользователи</div></div><div style="padding:20px;">`;
+  let html = "<h2>👥 Пользователи</h2>";
   Object.entries(allUsers).forEach(([uid, user]) => {
     html += `
-      <div class="chat" onclick="showUserProfile('${uid}')">
+      <div class="chat-item" onclick="showUserProfile('${uid}')">
         <div class="chat-avatar">${user.nickname.charAt(0)}</div>
         <div class="chat-info">
           <div class="chat-name">${user.nickname}</div>
-          <div style="font-size:12px;color:#aaa;">${uid}</div>
+          <div class="chat-desc">${uid}</div>
         </div>
       </div>
     `;
   });
-  html += `</div>`;
   mainContent.innerHTML = html;
+  document.querySelectorAll(".chat-item").forEach(el => {
+    if (!el.dataset.view) {
+      el.addEventListener("click", function() {
+        const uid = this.getAttribute("onclick").match(/'([^']+)'/)[1];
+        showUserProfile(uid);
+      });
+    }
+  });
 }
 
 function showUserProfile(uid) {
   const user = allUsers[uid];
-  if (!user) return alert("Пользователь не найден");
-  
-  let html = `
-    <div class="chat-header">
-      <div class="chat-avatar">${user.nickname.charAt(0)}</div>
-      <div class="chat-title">${user.nickname}</div>
-    </div>
-    <div style="padding:20px;">
-      <p><strong>ID:</strong> ${uid}</p>
-      <p><strong>Баланс:</strong> ⭐ ${user.balance?.stars || 0}</p>
-      <p><strong>Подарков:</strong> ${user.gifts?.length || 0}</p>
-      <button onclick="adminAddBalance('${uid}')" style="background:#4CAF50;color:white;border:none;padding:10px;border-radius:6px;margin-top:15px;">+ Баланс</button>
-    </div>
+  if (!user) return;
+  mainContent.innerHTML = `
+    <h2>👤 ${user.nickname}</h2>
+    <p><strong>ID:</strong> ${uid}</p>
+    <p><strong>Баланс:</strong> ⭐ ${user.balance?.stars || 0}</p>
+    <p><strong>Подарков:</strong> ${user.gifts?.length || 0}</p>
+    <button class="btn" onclick="adminAddBalance('${uid}')">+ Баланс</button>
   `;
-  mainContent.innerHTML = html;
 }
 
 function showGiftsPage() {
-  let html = `<div class="chat-header"><div class="chat-title">🎁 Подарки</div></div><div class="gifts-grid">`;
+  let html = `<h2>🎁 Подарки</h2><div class="gifts-grid">`;
   giftsDB.forEach(gift => {
     const remaining = gift.totalSupply - (gift.currentMinted || 0);
     html += `
       <div class="gift-card">
-        <img src="${gift.models?.[0] || 'https://placehold.co/80x80/555/white?text=?'}">
-        <h4>${gift.name}</h4>
-        <div class="price">⭐ ${gift.stars || 0}</div>
-        <div style="font-size:12px;color:#aaa;">${remaining}/${gift.totalSupply}</div>
-        <button class="buy-btn" onclick="buyGift('${gift.key}')">Купить</button>
+        <img src="${gift.models?.[0] || 'https://placehold.co/100x100/555/white?text=?'}">
+        <h3>${gift.name}</h3>
+        <div class="gift-price">⭐ ${gift.stars || 0}</div>
+        <div style="font-size:13px;color:#aaaaaa;">${remaining}/${gift.totalSupply}</div>
+        <button class="btn" onclick="buyGift('${gift.key}')">Купить</button>
       </div>
     `;
   });
@@ -182,13 +199,13 @@ function showGiftsPage() {
 }
 
 function showCasesPage() {
-  let html = `<div class="chat-header"><div class="chat-title">📦 Кейсы</div></div><div class="gifts-grid">`;
+  let html = `<h2>📦 Кейсы</h2><div class="gifts-grid">`;
   [50, 100, 150].forEach(price => {
     html += `
       <div class="gift-card">
         <div style="font-size:48px;margin:10px 0;">📦</div>
-        <h4>Кейс за ${price}⭐</h4>
-        <button class="buy-btn" onclick="openCase(${price})">Открыть</button>
+        <h3>Кейс за ${price}⭐</h3>
+        <button class="btn" onclick="openCase(${price})">Открыть</button>
       </div>
     `;
   });
@@ -197,19 +214,6 @@ function showCasesPage() {
 }
 
 // === ФУНКЦИИ ===
-async function editProfile() {
-  const nick = prompt("Ваш ник:", currentUser.nickname);
-  const avatar = prompt("URL аватарки:", currentUser.avatar);
-  if (nick !== null) currentUser.nickname = nick;
-  if (avatar !== null) currentUser.avatar = avatar;
-
-  await database.ref(`users/${userId}`).update({
-    nickname: currentUser.nickname,
-    avatar: currentUser.avatar
-  });
-  showMyProfile();
-}
-
 async function buyGift(giftKey) {
   const gift = giftsDB.find(g => g.key === giftKey);
   if (!gift || (gift.currentMinted || 0) >= gift.totalSupply) return alert("Нет в наличии");
@@ -225,7 +229,6 @@ async function buyGift(giftKey) {
     models: gift.models,
     serial: serial,
     source: "shop",
-    enhanced: false,
     selectedModel: gift.models[0]
   });
 
@@ -233,7 +236,7 @@ async function buyGift(giftKey) {
     balance: currentUser.balance,
     gifts: currentUser.gifts
   });
-  updateUserUI();
+  balanceStarsEl.textContent = currentUser.balance.stars;
   alert(`✅ Куплено: ${gift.name} #${serial}`);
   showGiftsPage();
 }
@@ -241,7 +244,7 @@ async function buyGift(giftKey) {
 async function openCase(price) {
   if (currentUser.balance.stars < price) return alert(`Нужно ${price} Stars!`);
   currentUser.balance.stars -= price;
-  updateUserUI();
+  balanceStarsEl.textContent = currentUser.balance.stars;
 
   const available = giftsDB.filter(g => (g.currentMinted || 0) < g.totalSupply);
   if (available.length === 0) return alert("Нет подарков");
@@ -256,7 +259,6 @@ async function openCase(price) {
     models: gift.models,
     serial: serial,
     source: "case",
-    enhanced: false,
     selectedModel: gift.models[0]
   });
 
@@ -269,16 +271,16 @@ async function openCase(price) {
 }
 
 async function adminAddBalance(uid) {
-  const stars = prompt("Сколько Stars добавить?", "100");
+  const stars = prompt("Сколько Stars?", "100");
   if (stars === null) return;
   const amount = parseInt(stars);
-  if (isNaN(amount)) return alert("Введите число");
+  if (isNaN(amount)) return;
 
   const userRef = database.ref(`users/${uid}/balance`);
   const balance = (await userRef.once("value")).val() || { stars: 0 };
   balance.stars += amount;
   await userRef.set(balance);
-  alert(`✅ Баланс пополнен!`);
+  alert("✅ Баланс пополнен!");
 }
 
 // === АДМИНКА ===
@@ -286,7 +288,7 @@ document.getElementById("btn-admin").addEventListener("click", () => {
   document.getElementById("admin-modal").classList.add("active");
 });
 
-document.querySelector(".close").addEventListener("click", () => {
+document.querySelector(".modal-close").addEventListener("click", () => {
   document.getElementById("admin-modal").classList.remove("active");
 });
 
@@ -318,7 +320,6 @@ document.getElementById("btn-give-gift").addEventListener("click", async () => {
     models: gift.models,
     serial: serial,
     source: "admin",
-    enhanced: false,
     selectedModel: gift.models[0]
   });
   await userRef.update({ gifts: userData.gifts });
@@ -339,3 +340,9 @@ document.getElementById("btn-add-balance").addEventListener("click", async () =>
 
 // === ЗАПУСК ===
 initApp();
+
+// Глобальные функции для inline onclick
+window.showUserProfile = showUserProfile;
+window.adminAddBalance = adminAddBalance;
+window.buyGift = buyGift;
+window.openCase = openCase;
