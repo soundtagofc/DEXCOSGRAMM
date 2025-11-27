@@ -13,176 +13,150 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 const ADMIN_PASSWORD = "secret123";
 
-let userData = JSON.parse(localStorage.getItem("userData")) || {
-  balance: { stars: 1000, fiton: 500 },
-  gifts: []
-};
+// Генерация уникального ID пользователя
+let userId = localStorage.getItem("userId");
+if (!userId) {
+  userId = "user_" + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+  localStorage.setItem("userId", userId);
+}
 
+let currentUser = null;
+let allUsers = {};
 let giftsDB = [];
-let firebaseGiftsMap = {}; // карта: firebaseKey -> подарок
+let marketRates = {};
 
 const balanceStarsEl = document.getElementById("balance-stars");
-const balanceFitonEl = document.getElementById("balance-fiton");
 const mainContent = document.getElementById("main-content");
 
-function updateUserUI() {
-  balanceStarsEl.textContent = userData.balance.stars;
-  balanceFitonEl.textContent = userData.balance.fiton;
-  localStorage.setItem("userData", JSON.stringify(userData));
+// === Инициализация приложения ===
+async function initApp() {
+  await ensureUserProfile();
+  loadAllUsers();
+  loadGifts();
+  loadMarketRates();
+  startCryptoMarket();
+  initSidebar();
+  showMyProfile();
 }
 
-function loadGiftsFromFirebase() {
-  const giftsRef = database.ref("gifts");
-  giftsRef.on("value", (snapshot) => {
-    const data = snapshot.val();
-    giftsDB = [];
-    firebaseGiftsMap = {};
-    if (data) {
-      Object.keys(data).forEach(key => {
-        const gift = data[key];
-        gift.firebaseKey = key; // сохраняем ключ Firebase
-        giftsDB.push(gift);
-        firebaseGiftsMap[key] = gift;
-      });
-    }
-    renderCurrentPage();
-  });
-}
-
-function renderCurrentPage() {
-  if (mainContent.innerHTML.includes("Профиль")) {
-    showProfilePage();
-  } else if (mainContent.innerHTML.includes("Кейсы")) {
-    showCasesPage();
+// === Создание профиля при первом заходе ===
+async function ensureUserProfile() {
+  const userRef = database.ref(`users/${userId}`);
+  const snapshot = await userRef.once("value");
+  if (snapshot.exists()) {
+    currentUser = snapshot.val();
   } else {
-    showGiftsPage();
+    currentUser = {
+      nickname: "User_" + userId.split('_')[1],
+      avatar: "https://placehold.co/100x100/444/white?text=👤",
+      balance: { stars: 1000 },
+      gifts: []
+    };
+    await userRef.set(currentUser);
   }
+  updateUserUI();
 }
 
-// === ПОКУПКА ===
-async function buyGift(firebaseKey) {
-  const gift = firebaseGiftsMap[firebaseKey];
-  if (!gift) return alert("Подарок не найден");
-  if (gift.currentMinted >= gift.totalSupply) return alert("Тираж исчерпан!");
-  if (userData.balance.stars < (gift.stars || 0)) return alert("Не хватает Stars!");
-  if (userData.balance.fiton < (gift.fiton || 0)) return alert("Не хватает FITON!");
-
-  // Снимаем деньги
-  userData.balance.stars -= gift.stars || 0;
-  userData.balance.fiton -= gift.fiton || 0;
-  updateUserUI(); // ← сразу обновляем UI
-
-  // Обновляем счётчик в Firebase
-  const newMinted = gift.currentMinted + 1;
-  await database.ref(`gifts/${firebaseKey}/currentMinted`).set(newMinted);
-
-  // Обновляем локальную копию
-  gift.currentMinted = newMinted;
-
-  // Добавляем в профиль
-  userData.gifts.push({
-    ...gift,
-    serial: newMinted,
-    source: "shop",
-    enhanced: false,
-    selectedModel: gift.models[0]
+// === Загрузка данных ===
+function loadAllUsers() {
+  database.ref("users").on("value", (snapshot) => {
+    allUsers = snapshot.val() || {};
   });
-
-  updateUserUI();
-  alert(`✅ Куплено: ${gift.name} #${newMinted}/${gift.totalSupply}`);
-  renderCurrentPage();
 }
 
-// === КЕЙС ===
-async function openCase(casePrice) {
-  if (userData.balance.stars < casePrice) return alert(`Нужно ${casePrice} Stars!`);
-
-  userData.balance.stars -= casePrice;
-  updateUserUI();
-
-  const available = giftsDB.filter(g => g.currentMinted < g.totalSupply);
-  if (available.length === 0) return alert("Нет доступных подарков!");
-
-  const gift = available[Math.floor(Math.random() * available.length)];
-  const newMinted = gift.currentMinted + 1;
-  await database.ref(`gifts/${gift.firebaseKey}/currentMinted`).set(newMinted);
-  gift.currentMinted = newMinted;
-
-  userData.gifts.push({
-    ...gift,
-    serial: newMinted,
-    source: "case",
-    enhanced: false,
-    selectedModel: gift.models[0]
+function loadGifts() {
+  database.ref("gifts").on("value", (snapshot) => {
+    const data = snapshot.val();
+    giftsDB = data ? Object.keys(data).map(key => ({ ...data[key], key })) : [];
   });
-
-  updateUserUI();
-  alert(`🎉 Получено из кейса: ${gift.name} #${newMinted}/${gift.totalSupply}`);
-  showCasesPage();
 }
 
-// === УЛУЧШЕНИЕ ===
-function enhanceGift(index) {
-  const gift = userData.gifts[index];
-  if (!gift) return;
-  if (gift.enhanced) return alert("Уже улучшен!");
-  if (userData.balance.stars < 50) return alert("Нужно 50 Stars!");
-
-  userData.balance.stars -= 50;
-  updateUserUI();
-
-  const randomModel = gift.models[Math.floor(Math.random() * gift.models.length)];
-  const backgrounds = [
-    "radial-gradient(circle, #ff9a9e, #fad0c4)",
-    "radial-gradient(circle, #a1c4fd, #c2e9fb)",
-    "radial-gradient(circle, #ffecd2, #fcb69f)",
-    "radial-gradient(circle, #8fd3f4, #43e97b)",
-    "radial-gradient(circle, #d299c2, #fef9d7)"
-  ];
-  const randomBg = backgrounds[Math.floor(Math.random() * backgrounds.length)];
-
-  gift.enhanced = true;
-  gift.selectedModel = randomModel;
-  gift.background = randomBg;
-
-  updateUserUI();
-  showProfilePage();
-  alert("🚀 Улучшено!");
+function loadMarketRates() {
+  database.ref("marketRates").on("value", (snapshot) => {
+    marketRates = snapshot.val() || {};
+  });
 }
 
-// === ПРОДАЖА ===
-function sellGift(index) {
-  const gift = userData.gifts[index];
-  if (!gift) return;
-
-  let returnAmount = gift.source === "case" 
-    ? Math.floor((gift.stars || 0) * (1 + Math.random() * 0.5))
-    : Math.floor((gift.stars || 0) * 0.5);
-
-  userData.balance.stars += returnAmount;
-  userData.gifts.splice(index, 1);
-  updateUserUI();
-  alert(`💰 Продано за ${returnAmount} Stars!`);
+// === Обновление UI ===
+function updateUserUI() {
+  if (!currentUser) return;
+  balanceStarsEl.textContent = currentUser.balance.stars;
 }
 
-// === СТРАНИЦЫ ===
-function showGiftsPage() {
+// === Страницы ===
+function showMyProfile() {
   let html = `<div class="chat-header">
-    <div class="chat-avatar">🎁</div>
-    <div class="chat-title">Магазин подарков</div>
-  </div><div class="gifts-grid">`;
+    <img src="${currentUser.avatar}" onerror="this.src='https://placehold.co/100x100/444/white?text=👤'">
+    <div>
+      <div class="chat-title">${currentUser.nickname}</div>
+      <div class="chat-preview">ID: ${userId}</div>
+    </div>
+    <button onclick="editProfile()" style="margin-left:auto;background:#444;border:none;color:white;padding:4px 8px;border-radius:4px;">✏️</button>
+  </div>
+  <div class="gifts-grid">`;
 
+  currentUser.gifts.forEach((gift, i) => {
+    const bg = gift.background || "var(--bg-secondary)";
+    const rate = marketRates[gift.giftKey] ? marketRates[gift.giftKey].toFixed(2) : "1.00";
+    html += `
+      <div class="gift-card" style="background:${bg};">
+        <img src="${gift.selectedModel}" onerror="this.src='https://placehold.co/80x80/555/white?text=?'">
+        <div>${gift.name}</div>
+        <div style="font-size:12px;">№${gift.serial}</div>
+        <div style="font-size:12px;color:#aaa;">Курс: ${rate}</div>
+        ${!gift.enhanced ? `<button class="buy-btn" onclick="enhanceGift(${i})">Улучшить (50⭐)</button>` : ''}
+        <button class="buy-btn" style="background:#ff5555;" onclick="sellGift(${i})">Продать</button>
+      </div>
+    `;
+  });
+  html += `</div>`;
+  mainContent.innerHTML = html;
+}
+
+function showUserList() {
+  let html = `<div class="chat-header"><div class="chat-title">👥 Все пользователи</div></div><div style="padding:16px;">`;
+  Object.entries(allUsers).forEach(([uid, user]) => {
+    html += `
+      <div class="chat" onclick="showUserProfile('${uid}')">
+        <img class="chat-avatar" src="${user.avatar}" onerror="this.src='https://placehold.co/40x40/444/white?text=👤'">
+        <div class="chat-info">
+          <div class="chat-name">${user.nickname}</div>
+          <div class="chat-preview">${uid}</div>
+        </div>
+      </div>
+    `;
+  });
+  html += `</div>`;
+  mainContent.innerHTML = html;
+}
+
+function showUserProfile(uid) {
+  const user = allUsers[uid];
+  if (!user) return alert("Пользователь не найден");
+  let html = `<div class="chat-header">
+    <img src="${user.avatar}" onerror="this.src='https://placehold.co/100x100/444/white?text=👤'">
+    <div class="chat-title">${user.nickname}</div>
+  </div>
+  <div style="padding:16px;">
+    <p><strong>ID:</strong> ${uid}</p>
+    <p><strong>Баланс:</strong> ⭐ ${user.balance?.stars || 0}</p>
+    <p><strong>Подарков:</strong> ${user.gifts?.length || 0}</p>
+    ${user.gifts?.map(g => `<div>🎁 ${g.name} #${g.serial}</div>`).join("") || ""}
+  </div>`;
+  mainContent.innerHTML = html;
+}
+
+function showGiftsPage() {
+  let html = `<div class="chat-header"><div class="chat-title">🎁 Магазин</div></div><div class="gifts-grid">`;
   giftsDB.forEach(gift => {
-    const remaining = gift.totalSupply - gift.currentMinted;
+    const remaining = gift.totalSupply - (gift.currentMinted || 0);
     html += `
       <div class="gift-card">
-        <img src="${gift.models[0]}" style="width:80px;height:80px;object-fit:contain;margin-bottom:10px;">
-        <h4>${gift.name}</h4>
-        <div class="price">${gift.stars ? `⭐ ${gift.stars}` : `💎 ${gift.fiton}`}</div>
-        <div style="font-size:12px;color:#aaa;">${remaining}/${gift.totalSupply}</div>
-        ${remaining > 0 ? 
-          `<button class="buy-btn" onclick="buyGift('${gift.firebaseKey}')">Купить</button>` : 
-          `<button disabled>Тираж исчерпан</button>`}
+        <img src="${gift.models?.[0] || 'https://placehold.co/80x80/555/white?text=?'}">
+        <div>${gift.name}</div>
+        <div class="price">⭐ ${gift.stars || 0}</div>
+        <div style="font-size:12px;">${remaining}/${gift.totalSupply}</div>
+        ${remaining > 0 ? `<button class="buy-btn" onclick="buyGift('${gift.key}')">Купить</button>` : '<button disabled>Нет в наличии</button>'}
       </div>
     `;
   });
@@ -191,15 +165,12 @@ function showGiftsPage() {
 }
 
 function showCasesPage() {
-  let html = `<div class="chat-header">
-    <div class="chat-avatar">📦</div>
-    <div class="chat-title">Кейсы</div>
-  </div><div class="gifts-grid">`;
-  [50,100,150,200,300].forEach(price => {
+  let html = `<div class="chat-header"><div class="chat-title">📦 Кейсы</div></div><div class="gifts-grid">`;
+  [50, 100, 150].forEach(price => {
     html += `
       <div class="gift-card">
-        <div style="font-size:48px;margin:10px 0;">📦</div>
-        <h4>Кейс за ${price}⭐</h4>
+        <div style="font-size:32px;margin:10px 0;">📦</div>
+        <div>Кейс за ${price}⭐</div>
         <button class="buy-btn" onclick="openCase(${price})">Открыть</button>
       </div>
     `;
@@ -208,69 +179,188 @@ function showCasesPage() {
   mainContent.innerHTML = html;
 }
 
-function showProfilePage() {
-  let html = `<div class="chat-header">
-    <div class="chat-avatar">👤</div>
-    <div class="chat-title">Ваш профиль</div>
-  </div><div class="profile-section">
-    <div class="balance-info">⭐ Stars: ${userData.balance.stars} | 💎 FITON: ${userData.balance.fiton}</div>
-    <h3>Ваши NFT (${userData.gifts.length})</h3>`;
+// === Функции пользователя ===
+async function editProfile() {
+  const nick = prompt("Ваш ник:", currentUser.nickname);
+  const avatar = prompt("URL аватарки:", currentUser.avatar);
+  if (nick !== null) currentUser.nickname = nick;
+  if (avatar !== null) currentUser.avatar = avatar;
 
-  if (userData.gifts.length === 0) {
-    html += `<p style="padding:20px;color:#aaa;">Нет подарков</p>`;
-  } else {
-    html += `<div class="gifts-grid">`;
-    userData.gifts.forEach((gift, index) => {
-      const bg = gift.background || "var(--bg-secondary)"; // ← до улучшения: серый фон
-      const sourceLabel = gift.source === "case" ? "📦 Из кейса" : "🛒 Из магазина";
-      html += `
-        <div class="gift-card" style="background:${bg};">
-          <img src="${gift.selectedModel}" style="width:80px;height:80px;object-fit:contain;margin-bottom:8px;">
-          <h4>${gift.name}</h4>
-          <div class="price">№${gift.serial}/${gift.totalSupply}</div>
-          <div style="font-size:12px;color:#aaa;">${sourceLabel}</div>
-          ${!gift.enhanced ? 
-            `<button class="buy-btn" onclick="enhanceGift(${index})">Улучшить (50⭐)</button>` : 
-            `<div class="price">✅ Улучшен</div>`}
-          <button class="buy-btn" style="background:#ff5555;" onclick="sellGift(${index})">Продать</button>
-        </div>
-      `;
-    });
-    html += `</div>`;
-  }
-  html += `</div>`;
-  mainContent.innerHTML = html;
+  await database.ref(`users/${userId}`).update({
+    nickname: currentUser.nickname,
+    avatar: currentUser.avatar
+  });
+  showMyProfile();
 }
 
-// === ОСТАЛЬНОЕ (админка, навигация) ===
-document.getElementById("btn-add-gift").addEventListener("click", async () => {
-  const name = document.getElementById("gift-name").value.trim();
-  const url1 = document.getElementById("url1").value.trim();
-  const url2 = document.getElementById("url2").value.trim();
-  const url3 = document.getElementById("url3").value.trim();
-  const stars = parseInt(document.getElementById("gift-stars").value) || 0;
-  const fiton = parseInt(document.getElementById("gift-fiton").value) || 0;
-  const total = parseInt(document.getElementById("gift-total").value) || 100;
+async function buyGift(giftKey) {
+  const gift = giftsDB.find(g => g.key === giftKey);
+  if (!gift || (gift.currentMinted || 0) >= gift.totalSupply) return alert("Нет в наличии");
+  if (currentUser.balance.stars < gift.stars) return alert("Не хватает Stars");
 
-  if (!name || (stars === 0 && fiton === 0)) return alert("Заполните данные!");
-  if (!url1) return alert("Нужен хотя бы 1 URL!");
+  currentUser.balance.stars -= gift.stars;
+  const serial = (gift.currentMinted || 0) + 1;
+  await database.ref(`gifts/${giftKey}/currentMinted`).set(serial);
 
-  const models = [url1];
-  if (url2) models.push(url2);
-  if (url3) models.push(url3);
-
-  await database.ref("gifts").push({
-    id: Date.now(),
-    name,
-    models,
-    stars,
-    fiton,
-    totalSupply: total,
-    currentMinted: 0
+  currentUser.gifts.push({
+    giftKey,
+    name: gift.name,
+    models: gift.models,
+    serial: serial,
+    source: "shop",
+    enhanced: false,
+    selectedModel: gift.models[0]
   });
-  alert("✅ Подарок добавлен!");
-});
 
+  await database.ref(`users/${userId}`).update({
+    balance: currentUser.balance,
+    gifts: currentUser.gifts
+  });
+  updateUserUI();
+  alert(`✅ Куплено: ${gift.name} #${serial}`);
+  showGiftsPage();
+}
+
+async function openCase(price) {
+  if (currentUser.balance.stars < price) return alert(`Нужно ${price} Stars`);
+  currentUser.balance.stars -= price;
+  updateUserUI();
+
+  const available = giftsDB.filter(g => (g.currentMinted || 0) < g.totalSupply);
+  if (available.length === 0) return alert("Нет подарков");
+
+  const gift = available[Math.floor(Math.random() * available.length)];
+  const serial = (gift.currentMinted || 0) + 1;
+  await database.ref(`gifts/${gift.key}/currentMinted`).set(serial);
+
+  currentUser.gifts.push({
+    giftKey: gift.key,
+    name: gift.name,
+    models: gift.models,
+    serial: serial,
+    source: "case",
+    enhanced: false,
+    selectedModel: gift.models[0]
+  });
+
+  await database.ref(`users/${userId}`).update({
+    balance: currentUser.balance,
+    gifts: currentUser.gifts
+  });
+  alert(`🎉 Выпало: ${gift.name} #${serial}`);
+  showCasesPage();
+}
+
+async function enhanceGift(index) {
+  const gift = currentUser.gifts[index];
+  if (!gift || gift.enhanced || currentUser.balance.stars < 50) return;
+  currentUser.balance.stars -= 50;
+
+  gift.enhanced = true;
+  gift.selectedModel = gift.models[Math.floor(Math.random() * gift.models.length)];
+  gift.background = [
+    "radial-gradient(circle, #ff9a9e, #fad0c4)",
+    "radial-gradient(circle, #a1c4fd, #c2e9fb)",
+    "radial-gradient(circle, #ffecd2, #fcb69f)",
+    "radial-gradient(circle, #8fd3f4, #43e97b)",
+    "radial-gradient(circle, #d299c2, #fef9d7)"
+  ][Math.floor(Math.random() * 5)];
+
+  await database.ref(`users/${userId}`).update({
+    balance: currentUser.balance,
+    gifts: currentUser.gifts
+  });
+  updateUserUI();
+  alert("🚀 Улучшено!");
+  showMyProfile();
+}
+
+async function sellGift(index) {
+  const gift = currentUser.gifts[index];
+  if (!gift) return;
+
+  const basePrice = giftsDB.find(g => g.key === gift.giftKey)?.stars || 0;
+  const rate = marketRates[gift.giftKey] || 1.0;
+  const mult = gift.source === "case" ? (1 + Math.random() * 0.5) : 0.5;
+  const final = Math.floor(basePrice * rate * mult);
+
+  currentUser.balance.stars += final;
+  currentUser.gifts.splice(index, 1);
+
+  await database.ref(`users/${userId}`).update({
+    balance: currentUser.balance,
+    gifts: currentUser.gifts
+  });
+  updateUserUI();
+  alert(`💰 Продано за ${final} Stars! (Курс: ${rate.toFixed(2)})`);
+  showMyProfile();
+}
+
+// === Админка ===
+async function adminGiveGift() {
+  const uid = document.getElementById("admin-target-id").value.trim();
+  const giftKey = document.getElementById("admin-gift-key").value.trim();
+  if (!allUsers[uid]) return alert("Пользователь не найден");
+  const gift = giftsDB.find(g => g.key === giftKey);
+  if (!gift) return alert("Подарок не найден");
+
+  const serial = (gift.currentMinted || 0) + 1;
+  await database.ref(`gifts/${giftKey}/currentMinted`).set(serial);
+
+  const userRef = database.ref(`users/${uid}`);
+  const userData = (await userRef.once("value")).val();
+  userData.gifts = userData.gifts || [];
+  userData.gifts.push({
+    giftKey,
+    name: gift.name,
+    models: gift.models,
+    serial: serial,
+    source: "admin",
+    enhanced: false,
+    selectedModel: gift.models[0]
+  });
+  await userRef.update({ gifts: userData.gifts });
+  alert("✅ Подарок выдан!");
+}
+
+async function adminAddBalance() {
+  const uid = document.getElementById("admin-target-id2").value.trim();
+  const stars = parseInt(document.getElementById("admin-add-stars").value) || 0;
+  if (!allUsers[uid]) return alert("Пользователь не найден");
+
+  const userRef = database.ref(`users/${uid}/balance`);
+  const balance = (await userRef.once("value")).val() || { stars: 0 };
+  balance.stars += stars;
+  await userRef.set(balance);
+  alert("✅ Баланс пополнен!");
+}
+
+// === Крипто-курс (как у настоящей крипты) ===
+function startCryptoMarket() {
+  setInterval(async () => {
+    giftsDB.forEach(async (gift) => {
+      const current = marketRates[gift.key] || 1.0;
+      // Волатильность: -5% до +5% каждые 10 сек
+      const change = (Math.random() - 0.5) * 0.1;
+      const newRate = Math.max(0.1, current + change);
+      marketRates[gift.key] = newRate;
+      await database.ref(`marketRates/${gift.key}`).set(newRate);
+    });
+  }, 10000); // каждые 10 секунд
+}
+
+// === Сайдбар ===
+function initSidebar() {
+  const chats = document.getElementById("chats-list");
+  chats.innerHTML = `
+    <div class="chat active" onclick="showMyProfile()">👤 Мой профиль</div>
+    <div class="chat" onclick="showUserList()">👥 Пользователи</div>
+    <div class="chat" onclick="showGiftsPage()">🎁 Магазин</div>
+    <div class="chat" onclick="showCasesPage()">📦 Кейсы</div>
+  `;
+}
+
+// === Админка UI ===
 document.getElementById("btn-admin").addEventListener("click", () => {
   document.getElementById("admin-modal").classList.remove("hidden");
 });
@@ -285,27 +375,6 @@ document.getElementById("btn-login-admin").addEventListener("click", () => {
     alert("❌ Неверный пароль!");
   }
 });
-document.getElementById("btn-add-balance").addEventListener("click", () => {
-  const addStars = parseInt(document.getElementById("add-stars").value) || 0;
-  const addFiton = parseInt(document.getElementById("add-fiton").value) || 0;
-  userData.balance.stars += addStars;
-  userData.balance.fiton += addFiton;
-  updateUserUI();
-  alert("✅ Баланс пополнен!");
-});
-
-document.querySelectorAll(".chat").forEach(chat => {
-  chat.addEventListener("click", () => {
-    document.querySelectorAll(".chat").forEach(c => c.classList.remove("active"));
-    chat.classList.add("active");
-    const view = chat.dataset.view;
-    if (view === "profile") showProfilePage();
-    else if (view === "cases") showCasesPage();
-    else showGiftsPage();
-  });
-});
 
 // === ЗАПУСК ===
-updateUserUI();
-loadGiftsFromFirebase();
-
+initApp();
