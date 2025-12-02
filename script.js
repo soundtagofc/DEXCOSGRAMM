@@ -12,7 +12,9 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
-let publicProfile, userId, giftsDB = [], isAppReady = false;
+let publicProfile, userId, giftsDB = [], userDataLoaded = false;
+let currentBalance = { stars: 1000, fiton: 500 };
+let currentGifts = [];
 
 // === Инициализация пользователя из Telegram ===
 function initUser() {
@@ -27,30 +29,38 @@ function initUser() {
         username: user.username || ("Игрок_" + user.id.toString().slice(-4)),
         avatar: user.photo_url || "https://placehold.co/100x100/5D3FD3/FFFFFF?text=👤"
       };
+      return true;
     } else {
       alert("⚠️ Не удалось получить данные Telegram. Откройте через бота.");
-      userId = "guest_" + Date.now();
-      publicProfile = { id: userId, username: "Гость", avatar: "https://placehold.co/100x100/555555/FFFFFF?text=❓" };
+      return false;
     }
   } else {
+    // Режим разработки (локально)
     userId = "dev_" + Date.now();
-    publicProfile = { id: userId, username: "Разработчик", avatar: "https://placehold.co/100x100/333333/FFFFFF?text=🛠️" };
+    publicProfile = {
+      id: userId,
+      username: "Разработчик",
+      avatar: "https://placehold.co/100x100/333333/FFFFFF?text=🛠️"
+    };
+    return true;
   }
 }
 
 // === Загрузка данных игрока из Firebase ===
-async function loadUserData() {
+async function loadUserDataFromFirebase() {
+  if (!userId) return;
+
   const userRef = database.ref(`users/${userId}`);
   const snapshot = await userRef.once("value");
-  
+
   if (snapshot.exists()) {
     const data = snapshot.val();
     // Обновляем профиль
-    publicProfile = { ...publicProfile, ...data };
-    // Обновляем баланс и подарки
-    const balance = data.balance || { stars: 1000, fiton: 500 };
-    const gifts = data.gifts || [];
-    return { balance, gifts };
+    publicProfile.username = data.username || publicProfile.username;
+    publicProfile.avatar = data.avatar || publicProfile.avatar;
+    // Загружаем баланс и подарки
+    currentBalance = data.balance || { stars: 1000, fiton: 500 };
+    currentGifts = data.gifts || [];
   } else {
     // Создаём нового пользователя
     const newUserData = {
@@ -59,26 +69,26 @@ async function loadUserData() {
       gifts: []
     };
     await userRef.set(newUserData);
-    return { balance: newUserData.balance, gifts: newUserData.gifts };
   }
 }
 
 // === Сохранение данных в Firebase ===
-async function saveUserData(balance, gifts) {
+async function saveUserDataToFirebase() {
+  if (!userId) return;
   await database.ref(`users/${userId}`).update({
-    balance,
-    gifts,
     username: publicProfile.username,
-    avatar: publicProfile.avatar
+    avatar: publicProfile.avatar,
+    balance: currentBalance,
+    gifts: currentGifts
   });
 }
 
 // === Обновление UI баланса ===
-function updateUI(balance) {
+function updateUI() {
   const balanceStarsEl = document.getElementById("balance-stars");
   const balanceFitonEl = document.getElementById("balance-fiton");
-  if (balanceStarsEl) balanceStarsEl.textContent = balance.stars;
-  if (balanceFitonEl) balanceFitonEl.textContent = balance.fiton;
+  if (balanceStarsEl) balanceStarsEl.textContent = currentBalance.stars;
+  if (balanceFitonEl) balanceFitonEl.textContent = currentBalance.fiton;
 }
 
 // === Сохранение профиля ===
@@ -90,7 +100,6 @@ async function saveProfile() {
   alert("✅ Профиль сохранён!");
 }
 
-// === Ручное обновление профиля ===
 function saveProfileManually() {
   const un = document.getElementById("edit-username")?.value.trim();
   const av = document.getElementById("edit-avatar")?.value.trim();
@@ -101,13 +110,13 @@ function saveProfileManually() {
   saveProfile();
 }
 
-// === Страницы (рендеринг) ===
-function showGiftsPage(giftsDBLocal, balance) {
+// === Рендеринг страниц ===
+function showGiftsPage() {
   const mainContent = document.getElementById("main-content");
   if (!mainContent) return;
 
   let html = `<div class="chat-header"><div class="chat-avatar">🎁</div><div class="chat-title">Магазин</div></div><div class="gifts-list">`;
-  giftsDBLocal.forEach(gift => {
+  giftsDB.forEach(gift => {
     const rem = gift.totalSupply - gift.currentMinted;
     const img = gift.models?.[0] || "https://placehold.co/70x70/444444/FFFFFF?text=?";
     html += `
@@ -117,7 +126,7 @@ function showGiftsPage(giftsDBLocal, balance) {
           <h4>${gift.name}</h4>
           <div class="price">${gift.stars ? `⭐ ${gift.stars}` : `💎 ${gift.fiton}`}</div>
           <div style="font-size:12px;color:#aaa;">${rem}/${gift.totalSupply}</div>
-          ${rem > 0 ? `<button class="buy-btn small" onclick="buyGiftHandler('${gift.firebaseKey}')">Купить</button>` : `<button disabled>Исчерпано</button>`}
+          ${rem > 0 ? `<button class="buy-btn small" onclick="buyGift('${gift.firebaseKey}')">Купить</button>` : `<button disabled>Исчерпано</button>`}
         </div>
       </div>
     `;
@@ -126,7 +135,7 @@ function showGiftsPage(giftsDBLocal, balance) {
   mainContent.innerHTML = html;
 }
 
-function showCasesPage(balance) {
+function showCasesPage() {
   const mainContent = document.getElementById("main-content");
   if (!mainContent) return;
 
@@ -138,7 +147,7 @@ function showCasesPage(balance) {
         <div class="gift-info">
           <h4>Кейс «Стандарт»</h4>
           <div class="price">500⭐</div>
-          <button class="buy-btn small" onclick="openCaseHandler(500)">Открыть</button>
+          <button class="buy-btn small" onclick="openCase(500)">Открыть</button>
         </div>
       </div>
       <div class="gift-card" style="text-align:center; border: 2px solid gold; background: rgba(255,215,0,0.1);">
@@ -146,14 +155,14 @@ function showCasesPage(balance) {
         <div class="gift-info">
           <h4>Кейс «Премиум»</h4>
           <div class="price">1000⭐</div>
-          <button class="buy-btn small" style="background: gold; color: #000;" onclick="openCaseHandler(1000)">Открыть</button>
+          <button class="buy-btn small" style="background: gold; color: #000;" onclick="openCase(1000)">Открыть</button>
         </div>
       </div>
     </div>
   `;
 }
 
-function showMyProfilePage(gifts, balance) {
+function showMyProfilePage() {
   const mainContent = document.getElementById("main-content");
   if (!mainContent) return;
 
@@ -163,21 +172,21 @@ function showMyProfilePage(gifts, balance) {
       <div class="chat-title">Мой профиль</div>
     </div>
     <div class="profile-section">
-      <div class="balance-info">⭐ Stars: ${balance.stars} | 💎 FITON: ${balance.fiton}</div>
+      <div class="balance-info">⭐ Stars: ${currentBalance.stars} | 💎 FITON: ${currentBalance.fiton}</div>
       
       <h3>Редактировать профиль</h3>
       <input type="text" id="edit-username" value="${publicProfile.username}" placeholder="Никнейм">
       <input type="url" id="edit-avatar" value="${publicProfile.avatar}" placeholder="URL аватарки">
       <button class="buy-btn" onclick="saveProfileManually()">Сохранить</button>
 
-      <h3 style="margin-top:20px;">Мои NFT (${gifts.length})</h3>
+      <h3 style="margin-top:20px;">Мои NFT (${currentGifts.length})</h3>
   `;
 
-  if (gifts.length === 0) {
+  if (currentGifts.length === 0) {
     html += `<p style="padding:20px;text-align:center;color:#aaa;">Нет подарков</p>`;
   } else {
     html += `<div class="gifts-list">`;
-    gifts.forEach((gift, i) => {
+    currentGifts.forEach((gift, i) => {
       const baseValue = gift.baseValue || 100;
       const multiplier = typeof gift.multiplier === 'number' ? gift.multiplier : 1.0;
       const currentPrice = Math.floor(baseValue * multiplier);
@@ -195,9 +204,9 @@ function showMyProfilePage(gifts, balance) {
             <div style="font-size:12px;color:#aaa;">${multiplier.toFixed(2)}x</div>
             <div style="margin-top:10px;">
               ${!gift.enhanced ? 
-                `<button class="buy-btn small" onclick="enhanceGiftHandler(${i})">Улучшить</button>` : 
+                `<button class="buy-btn small" onclick="enhanceGift(${i})">Улучшить</button>` : 
                 `<span class="price">✅ Улучшен</span>`}
-              <button class="buy-btn small" style="background:#ff5555;" onclick="sellGiftHandler(${i})">Продать</button>
+              <button class="buy-btn small" style="background:#ff5555;" onclick="sellGift(${i})">Продать</button>
             </div>
           </div>
         </div>
@@ -209,10 +218,8 @@ function showMyProfilePage(gifts, balance) {
   mainContent.innerHTML = html;
 }
 
-// === Обработчики действий (теперь с сохранением в Firebase) ===
-let currentBalance, currentGifts;
-
-async function buyGiftHandler(key) {
+// === Действия (сохраняют в Firebase) ===
+async function buyGift(key) {
   const gift = giftsDB.find(g => g.firebaseKey === key);
   if (!gift || gift.currentMinted >= gift.totalSupply) return alert("Недоступно");
   if (currentBalance.stars < (gift.stars || 0)) return alert("Не хватает Stars!");
@@ -235,13 +242,13 @@ async function buyGiftHandler(key) {
     baseValue
   });
 
-  await saveUserData(currentBalance, currentGifts);
-  updateUI(currentBalance);
+  await saveUserDataToFirebase();
+  updateUI();
   alert(`✅ Куплено: ${gift.name}`);
-  showGiftsPage(giftsDB, currentBalance);
+  showGiftsPage();
 }
 
-async function openCaseHandler(price) {
+async function openCase(price) {
   if (![500,1000].includes(price) || currentBalance.stars < price) return alert("Неверная цена или недостаточно средств");
   currentBalance.stars -= price;
   const avail = giftsDB.filter(g => g.currentMinted < g.totalSupply);
@@ -275,12 +282,12 @@ async function openCaseHandler(price) {
     baseValue: gift.stars || gift.fiton || 100
   });
 
-  await saveUserData(currentBalance, currentGifts);
-  updateUI(currentBalance);
-  showCasesPage(currentBalance);
+  await saveUserDataToFirebase();
+  updateUI();
+  showCasesPage();
 }
 
-async function enhanceGiftHandler(i) {
+async function enhanceGift(i) {
   const g = currentGifts[i];
   if (!g || g.enhanced) return alert("Уже улучшено!");
   if (currentBalance.stars < 50) return alert("Нужно 50⭐");
@@ -301,13 +308,13 @@ async function enhanceGiftHandler(i) {
   if (typeof g.multiplier !== 'number') g.multiplier = 1.0;
   g.multiplier = parseFloat((g.multiplier + (Math.random() - 0.5) * 0.5).toFixed(4));
 
-  await saveUserData(currentBalance, currentGifts);
-  updateUI(currentBalance);
-  showMyProfilePage(currentGifts, currentBalance);
+  await saveUserDataToFirebase();
+  updateUI();
+  showMyProfilePage();
   alert("🚀 Улучшено! Цена теперь колеблется.");
 }
 
-async function sellGiftHandler(i) {
+async function sellGift(i) {
   const g = currentGifts[i];
   if (!g) return;
   const baseValue = g.baseValue || 100;
@@ -316,19 +323,19 @@ async function sellGiftHandler(i) {
   currentBalance.stars += val;
   currentGifts.splice(i, 1);
 
-  await saveUserData(currentBalance, currentGifts);
-  updateUI(currentBalance);
-  showMyProfilePage(currentGifts, currentBalance);
+  await saveUserDataToFirebase();
+  updateUI();
+  showMyProfilePage();
   alert(`💰 Продано за ${val} Stars!`);
 }
 
-// === Инициализация приложения ===
+// === Запуск приложения ===
 async function initApp() {
-  initUser();
-  const userData = await loadUserData();
-  currentBalance = userData.balance;
-  currentGifts = userData.gifts;
-  updateUI(currentBalance);
+  const success = initUser();
+  if (!success) return;
+
+  await loadUserDataFromFirebase();
+  updateUI();
 
   // Скрыть админку
   const btnAdmin = document.getElementById("btn-admin");
@@ -339,21 +346,21 @@ async function initApp() {
   // Загрузка подарков
   database.ref("gifts").on("value", (snapshot) => {
     giftsDB = snapshot.val() ? Object.entries(snapshot.val()).map(([k, v]) => ({ ...v, firebaseKey: k })) : [];
-    if (!isAppReady) {
-      showGiftsPage(giftsDB, currentBalance);
-      isAppReady = true;
+    if (!userDataLoaded) {
+      showGiftsPage();
+      userDataLoaded = true;
     }
   });
 
-  // Навигация (для мобильных табов)
+  // Навигация
   document.querySelectorAll(".nav-tab").forEach(tab => {
     tab.addEventListener("click", () => {
       document.querySelectorAll(".nav-tab").forEach(t => t.classList.remove("active"));
       tab.classList.add("active");
       const view = tab.dataset.view;
-      if (view === "profile") showMyProfilePage(currentGifts, currentBalance);
-      else if (view === "cases") showCasesPage(currentBalance);
-      else showGiftsPage(giftsDB, currentBalance);
+      if (view === "profile") showMyProfilePage();
+      else if (view === "cases") showCasesPage();
+      else showGiftsPage();
     });
   });
 }
