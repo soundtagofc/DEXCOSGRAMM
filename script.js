@@ -1,4 +1,4 @@
-// === Firebase Config ===
+// === Firebase === //
 const firebaseConfig = {
   apiKey: "AIzaSyBiDLi2kyKzL1BsuF8o-qcFHGg7H9eBY1g",
   authDomain: "deedededxx.firebaseapp.com",
