@@ -4,12 +4,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Telegram NFT Gifts</title>
-  <link rel="stylesheet" href="style.css" />
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body class="dark">
+  <!-- Бегущая строка-баннер -->
+  <div class="marquee-banner">
+    <span>🔥 БЕТАТЕСТ ОТКРЫТ! 🔥 БЕТАТЕСТ ОТКРЫТ! 🔥 БЕТАТЕСТ ОТКРЫТ! 🔥</span>
+  </div>
+
   <div class="app-container">
     <!-- Сайдбар -->
     <aside class="sidebar">
@@ -56,39 +63,6 @@
     </main>
   </div>
 
-  <!-- Админ-панель -->
-  <div id="admin-modal" class="modal hidden">
-    <div class="modal-content">
-      <span class="close">&times;</span>
-      <h2>🔐 Админ-панель</h2>
-      <div id="admin-login">
-        <input type="password" id="admin-pass" placeholder="Секретный пароль" />
-        <button id="btn-login-admin">Войти</button>
-      </div>
-      <div id="admin-actions" class="hidden">
-        <h3>➕ Добавить подарок</h3>
-        <input type="text" id="gift-name" placeholder="Название подарка" />
-        <input type="url" id="url1" placeholder="URL модели 1 (обязательно)" />
-        <input type="url" id="url2" placeholder="URL модели 2 (опционально)" />
-        <input type="url" id="url3" placeholder="URL модели 3 (опционально)" />
-        <div class="price-row">
-          <input type="number" id="gift-stars" placeholder="Цена в Stars" min="0" value="100" />
-          <input type="number" id="gift-fiton" placeholder="Цена в FITON" min="0" value="0" />
-        </div>
-        <input type="number" id="gift-total" placeholder="Общее количество (например, 100)" min="1" value="100" />
-        <button id="btn-add-gift">Добавить в базу</button>
-
-        <h3>💰 Пополнить баланс</h3>
-        <div class="price-row">
-          <input type="number" id="add-stars" placeholder="Stars" min="0" />
-          <input type="number" id="add-fiton" placeholder="FITON" min="0" />
-        </div>
-        <button id="btn-add-balance">Пополнить</button>
-      </div>
-    </div>
-  </div>
-
   <script src="script.js"></script>
 </body>
 </html>
-
