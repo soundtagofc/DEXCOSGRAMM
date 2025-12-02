@@ -14,7 +14,7 @@ const database = firebase.database();
 
 let publicProfile, userId, userData, giftsDB = [], isAppReady = false;
 
-// === Инициализация пользователя (Telegram или Dev) ===
+// === Инициализация пользователя ===
 function initUser() {
   if (typeof window.Telegram?.WebApp !== "undefined") {
     const tg = window.Telegram.WebApp;
@@ -48,12 +48,14 @@ function initUserData() {
 
 // === Обновление UI баланса ===
 function updateUI() {
-  document.getElementById("balance-stars").textContent = userData.balance.stars;
-  document.getElementById("balance-fiton").textContent = userData.balance.fiton;
+  const balanceStarsEl = document.getElementById("balance-stars");
+  const balanceFitonEl = document.getElementById("balance-fiton");
+  if (balanceStarsEl) balanceStarsEl.textContent = userData.balance.stars;
+  if (balanceFitonEl) balanceFitonEl.textContent = userData.balance.fiton;
   localStorage.setItem("userData", JSON.stringify(userData));
 }
 
-// === Сохранение профиля в Firebase ===
+// === Сохранение профиля ===
 async function saveProfile() {
   await database.ref(`users/${userId}`).set(publicProfile);
   localStorage.setItem("publicProfile", JSON.stringify(publicProfile));
@@ -88,12 +90,15 @@ function showGiftsPage() {
     `;
   });
   html += `</div>`;
-  document.getElementById("main-content").innerHTML = html;
+  const mainContent = document.getElementById("main-content");
+  if (mainContent) mainContent.innerHTML = html;
 }
 
 // === Страница: Кейсы ===
 function showCasesPage() {
-  document.getElementById("main-content").innerHTML = `
+  const mainContent = document.getElementById("main-content");
+  if (!mainContent) return;
+  mainContent.innerHTML = `
     <div class="chat-header"><div class="chat-avatar">📦</div><div class="chat-title">Кейсы</div></div>
     <div class="gifts-grid">
       <div class="gift-card">
@@ -112,8 +117,11 @@ function showCasesPage() {
   `;
 }
 
-// === Страница: Мой профиль (с листанием) ===
+// === Страница: Мой профиль (исправленная!) ===
 function showMyProfilePage() {
+  const mainContent = document.getElementById("main-content");
+  if (!mainContent) return;
+
   let html = `
     <div class="chat-header">
       <img src="${publicProfile.avatar}" style="width:40px;height:40px;border-radius:50%;">
@@ -154,7 +162,7 @@ function showMyProfilePage() {
     html += `</div></div>`;
   }
   html += `</div>`;
-  document.getElementById("main-content").innerHTML = html;
+  mainContent.innerHTML = html;
 
   // Активируем прокрутку
   const scrollContainer = document.querySelector(".gifts-scroll");
