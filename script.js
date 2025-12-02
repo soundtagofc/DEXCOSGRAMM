@@ -143,17 +143,27 @@ function showMyProfilePage() {
   } else {
     html += `<div class="gifts-scroll-container"><div class="gifts-scroll">`;
     userData.gifts.forEach((gift, i) => {
-      const currentPrice = Math.floor(gift.baseValue * gift.multiplier);
-      const priceClass = currentPrice > (gift._last || currentPrice) ? "up" : currentPrice < (gift._last || currentPrice) ? "down" : "";
+      // Безопасное вычисление multiplier и baseValue
+      const baseValue = gift.baseValue || 100;
+      const multiplier = typeof gift.multiplier === 'number' ? gift.multiplier : 1.0;
+      const currentPrice = Math.floor(baseValue * multiplier);
+
+      // Безопасное сравнение с предыдущим значением
+      const lastPrice = gift._last || currentPrice;
+      const priceClass = currentPrice > lastPrice ? "up" : currentPrice < lastPrice ? "down" : "";
+
+      // Обновляем последнее значение
       gift._last = currentPrice;
+
       const bg = gift.background || "var(--bg-tertiary)";
       const model = gift.selectedModel || (gift.models?.[0] || "https://placehold.co/80x80/444444/FFFFFF?text=?");
+
       html += `
         <div class="gift-card" style="background:${bg}; flex: 0 0 auto; margin-right: 16px; width: 150px;">
           <img src="${model}" style="width:80px;height:80px;object-fit:contain;">
           <h4>${gift.name}</h4>
           <div class="price ${priceClass}">${currentPrice}⭐</div>
-          <div style="font-size:11px;color:#aaa;">${gift.multiplier.toFixed(2)}x</div>
+          <div style="font-size:11px;color:#aaa;">${multiplier.toFixed(2)}x</div>
           ${!gift.enhanced ? `<button class="buy-btn" onclick="enhanceGift(${i})">Улучшить (50⭐)</button>` : `<div class="price">✅ Активен</div>`}
           <button class="buy-btn" style="background:#ff5555;" onclick="sellGift(${i})">Продать</button>
         </div>
@@ -203,14 +213,19 @@ async function buyGift(key) {
   const newMinted = gift.currentMinted + 1;
   await database.ref(`gifts/${key}/currentMinted`).set(newMinted);
   gift.currentMinted = newMinted;
+
+  // Безопасное генерирование multiplier
+  const baseValue = gift.stars || gift.fiton || 100;
+  const multiplier = parseFloat((0.8 + Math.random() * 0.5).toFixed(4));
+
   userData.gifts.push({
     ...gift,
     serial: newMinted,
     source: "shop",
     enhanced: false,
     selectedModel: gift.models?.[0] || "https://placehold.co/80x80/444444/FFFFFF?text=?",
-    multiplier: parseFloat((0.8 + Math.random() * 0.5).toFixed(4)),
-    baseValue: gift.stars || gift.fiton || 100
+    multiplier,
+    baseValue
   });
   updateUI();
   alert(`✅ Куплено: ${gift.name}`);
@@ -226,6 +241,8 @@ async function openCase(price) {
   const newMinted = gift.currentMinted + 1;
   await database.ref(`gifts/${gift.firebaseKey}/currentMinted`).set(newMinted);
   gift.currentMinted = newMinted;
+
+  // Безопасное генерирование multiplier
   const roll = Math.random();
   let mult;
   if (price === 1000) {
@@ -239,13 +256,17 @@ async function openCase(price) {
     else if (roll < 0.2) mult = 1.0 + Math.random() * 0.5;
     else mult = 0.3 + Math.random() * 0.7;
   }
+
+  // Приводим к числу и округляем
+  const multiplier = parseFloat(mult.toFixed(4));
+
   userData.gifts.push({
     ...gift,
     serial: newMinted,
     source: "case",
     enhanced: false,
     selectedModel: gift.models?.[0] || "https://placehold.co/80x80/444444/FFFFFF?text=?",
-    multiplier: parseFloat(mult.toFixed(4)),
+    multiplier,
     baseValue: gift.stars || gift.fiton || 100
   });
   updateUI();
@@ -268,6 +289,13 @@ function enhanceGift(i) {
     "radial-gradient(circle, #8fd3f4, #43e97b)",
     "radial-gradient(circle, #d299c2, #fef9d7)"
   ][Math.floor(Math.random() * 5)];
+
+  // Добавляем колебания курса после улучшения
+  if (typeof g.multiplier !== 'number') {
+    g.multiplier = 1.0;
+  }
+  g.multiplier = parseFloat((g.multiplier + (Math.random() - 0.5) * 0.5).toFixed(4));
+
   updateUI();
   showMyProfilePage();
   alert("🚀 Улучшено! Цена теперь колеблется.");
@@ -276,7 +304,9 @@ function enhanceGift(i) {
 function sellGift(i) {
   const g = userData.gifts[i];
   if (!g) return;
-  const val = Math.floor(g.baseValue * g.multiplier);
+  const baseValue = g.baseValue || 100;
+  const multiplier = typeof g.multiplier === 'number' ? g.multiplier : 1.0;
+  const val = Math.floor(baseValue * multiplier);
   userData.balance.stars += val;
   userData.gifts.splice(i, 1);
   updateUI();
@@ -315,3 +345,5 @@ async function initApp() {
 }
 
 initApp();
+initApp();
+
