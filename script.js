@@ -14,7 +14,7 @@ const database = firebase.database();
 
 let publicProfile, userId, userData, giftsDB = [], isAppReady = false;
 
-// === Инициализация пользователя ===
+// === Инициализация пользователя из Telegram ===
 function initUser() {
   if (typeof window.Telegram?.WebApp !== "undefined") {
     const tg = window.Telegram.WebApp;
@@ -55,7 +55,7 @@ function updateUI() {
   localStorage.setItem("userData", JSON.stringify(userData));
 }
 
-// === Сохранение профиля ===
+// === Сохранение профиля в Firebase ===
 async function saveProfile() {
   await database.ref(`users/${userId}`).set(publicProfile);
   localStorage.setItem("publicProfile", JSON.stringify(publicProfile));
@@ -75,56 +75,65 @@ function saveProfileManually() {
 
 // === Страница: Магазин ===
 function showGiftsPage() {
-  let html = `<div class="chat-header"><div class="chat-avatar">🎁</div><div class="chat-title">Магазин</div></div><div class="gifts-grid">`;
+  const mainContent = document.getElementById("main-content");
+  if (!mainContent) return;
+
+  let html = `<div class="chat-header"><div class="chat-avatar">🎁</div><div class="chat-title">Магазин</div></div><div class="gifts-list">`;
   giftsDB.forEach(gift => {
     const rem = gift.totalSupply - gift.currentMinted;
-    const img = gift.models?.[0] || "https://placehold.co/80x80/444444/FFFFFF?text=?";
+    const img = gift.models?.[0] || "https://placehold.co/70x70/444444/FFFFFF?text=?";
     html += `
       <div class="gift-card">
-        <img src="${img}" style="width:80px;height:80px;object-fit:contain;">
-        <h4>${gift.name}</h4>
-        <div class="price">${gift.stars ? `⭐ ${gift.stars}` : `💎 ${gift.fiton}`}</div>
-        <div style="font-size:12px;color:#aaa;">${rem}/${gift.totalSupply}</div>
-        ${rem > 0 ? `<button class="buy-btn" onclick="buyGift('${gift.firebaseKey}')">Купить</button>` : `<button disabled>Исчерпано</button>`}
+        <img src="${img}" alt="${gift.name}">
+        <div class="gift-info">
+          <h4>${gift.name}</h4>
+          <div class="price">${gift.stars ? `⭐ ${gift.stars}` : `💎 ${gift.fiton}`}</div>
+          <div style="font-size:12px;color:#aaa;">${rem}/${gift.totalSupply}</div>
+          ${rem > 0 ? `<button class="buy-btn small" onclick="buyGift('${gift.firebaseKey}')">Купить</button>` : `<button disabled>Исчерпано</button>`}
+        </div>
       </div>
     `;
   });
   html += `</div>`;
-  const mainContent = document.getElementById("main-content");
-  if (mainContent) mainContent.innerHTML = html;
+  mainContent.innerHTML = html;
 }
 
 // === Страница: Кейсы ===
 function showCasesPage() {
   const mainContent = document.getElementById("main-content");
   if (!mainContent) return;
+
   mainContent.innerHTML = `
     <div class="chat-header"><div class="chat-avatar">📦</div><div class="chat-title">Кейсы</div></div>
-    <div class="gifts-grid">
-      <div class="gift-card">
+    <div class="gifts-list">
+      <div class="gift-card" style="text-align:center;">
         <div style="font-size:48px;">📦</div>
-        <h4>Кейс «Стандарт»</h4>
-        <div class="price">500⭐</div>
-        <button class="buy-btn" onclick="openCase(500)">Открыть</button>
+        <div class="gift-info">
+          <h4>Кейс «Стандарт»</h4>
+          <div class="price">500⭐</div>
+          <button class="buy-btn small" onclick="openCase(500)">Открыть</button>
+        </div>
       </div>
-      <div class="gift-card" style="border: 2px solid gold; background: rgba(255,215,0,0.1);">
+      <div class="gift-card" style="text-align:center; border: 2px solid gold; background: rgba(255,215,0,0.1);">
         <div style="font-size:48px;">💎</div>
-        <h4>Кейс «Премиум»</h4>
-        <div class="price">1000⭐</div>
-        <button class="buy-btn" style="background: gold; color: #000;" onclick="openCase(1000)">Открыть</button>
+        <div class="gift-info">
+          <h4>Кейс «Премиум»</h4>
+          <div class="price">1000⭐</div>
+          <button class="buy-btn small" style="background: gold; color: #000;" onclick="openCase(1000)">Открыть</button>
+        </div>
       </div>
     </div>
   `;
 }
 
-// === Страница: Мой профиль (исправленная!) ===
+// === Страница: Мой профиль (вертикальный список) ===
 function showMyProfilePage() {
   const mainContent = document.getElementById("main-content");
   if (!mainContent) return;
 
   let html = `
     <div class="chat-header">
-      <img src="${publicProfile.avatar}" style="width:40px;height:40px;border-radius:50%;">
+      <img src="${publicProfile.avatar}" alt="Аватар">
       <div class="chat-title">Мой профиль</div>
     </div>
     <div class="profile-section">
@@ -141,67 +150,37 @@ function showMyProfilePage() {
   if (userData.gifts.length === 0) {
     html += `<p style="padding:20px;text-align:center;color:#aaa;">Нет подарков</p>`;
   } else {
-    html += `<div class="gifts-scroll-container"><div class="gifts-scroll">`;
+    html += `<div class="gifts-list">`;
     userData.gifts.forEach((gift, i) => {
-      // Безопасное вычисление multiplier и baseValue
       const baseValue = gift.baseValue || 100;
       const multiplier = typeof gift.multiplier === 'number' ? gift.multiplier : 1.0;
       const currentPrice = Math.floor(baseValue * multiplier);
-
-      // Безопасное сравнение с предыдущим значением
       const lastPrice = gift._last || currentPrice;
       const priceClass = currentPrice > lastPrice ? "up" : currentPrice < lastPrice ? "down" : "";
-
-      // Обновляем последнее значение
       gift._last = currentPrice;
-
-      const bg = gift.background || "var(--bg-tertiary)";
-      const model = gift.selectedModel || (gift.models?.[0] || "https://placehold.co/80x80/444444/FFFFFF?text=?");
+      const model = gift.selectedModel || (gift.models?.[0] || "https://placehold.co/70x70/444444/FFFFFF?text=?");
 
       html += `
-        <div class="gift-card" style="background:${bg}; flex: 0 0 auto; margin-right: 16px; width: 150px;">
-          <img src="${model}" style="width:80px;height:80px;object-fit:contain;">
-          <h4>${gift.name}</h4>
-          <div class="price ${priceClass}">${currentPrice}⭐</div>
-          <div style="font-size:11px;color:#aaa;">${multiplier.toFixed(2)}x</div>
-          ${!gift.enhanced ? `<button class="buy-btn" onclick="enhanceGift(${i})">Улучшить (50⭐)</button>` : `<div class="price">✅ Активен</div>`}
-          <button class="buy-btn" style="background:#ff5555;" onclick="sellGift(${i})">Продать</button>
+        <div class="gift-card">
+          <img src="${model}" alt="${gift.name}">
+          <div class="gift-info">
+            <h4>${gift.name}</h4>
+            <div class="price ${priceClass}">${currentPrice}⭐</div>
+            <div style="font-size:12px;color:#aaa;">${multiplier.toFixed(2)}x</div>
+            <div style="margin-top:10px;">
+              ${!gift.enhanced ? 
+                `<button class="buy-btn small" onclick="enhanceGift(${i})">Улучшить</button>` : 
+                `<span class="price">✅ Улучшен</span>`}
+              <button class="buy-btn small" style="background:#ff5555;" onclick="sellGift(${i})">Продать</button>
+            </div>
+          </div>
         </div>
       `;
     });
-    html += `</div></div>`;
+    html += `</div>`;
   }
   html += `</div>`;
   mainContent.innerHTML = html;
-
-  // Активируем прокрутку
-  const scrollContainer = document.querySelector(".gifts-scroll");
-  if (scrollContainer) {
-    scrollContainer.addEventListener("wheel", (e) => {
-      if (e.deltaY !== 0) {
-        e.preventDefault();
-        scrollContainer.scrollBy({ left: e.deltaY, behavior: "auto" });
-      }
-    });
-
-    let isDown = false, startX, scrollLeft;
-    scrollContainer.addEventListener("mousedown", (e) => {
-      isDown = true;
-      startX = e.pageX - scrollContainer.offsetLeft;
-      scrollLeft = scrollContainer.scrollLeft;
-      scrollContainer.style.cursor = "grabbing";
-    });
-    scrollContainer.addEventListener("mouseleave", () => isDown = false);
-    scrollContainer.addEventListener("mouseup", () => isDown = false);
-    scrollContainer.addEventListener("mousemove", (e) => {
-      if (!isDown) return;
-      e.preventDefault();
-      const x = e.pageX - scrollContainer.offsetLeft;
-      const walk = (x - startX) * 2;
-      scrollContainer.scrollLeft = scrollLeft - walk;
-    });
-    scrollContainer.style.cursor = "grab";
-  }
 }
 
 // === Логика игры ===
@@ -214,7 +193,6 @@ async function buyGift(key) {
   await database.ref(`gifts/${key}/currentMinted`).set(newMinted);
   gift.currentMinted = newMinted;
 
-  // Безопасное генерирование multiplier
   const baseValue = gift.stars || gift.fiton || 100;
   const multiplier = parseFloat((0.8 + Math.random() * 0.5).toFixed(4));
 
@@ -223,7 +201,7 @@ async function buyGift(key) {
     serial: newMinted,
     source: "shop",
     enhanced: false,
-    selectedModel: gift.models?.[0] || "https://placehold.co/80x80/444444/FFFFFF?text=?",
+    selectedModel: gift.models?.[0] || "https://placehold.co/70x70/444444/FFFFFF?text=?",
     multiplier,
     baseValue
   });
@@ -242,7 +220,6 @@ async function openCase(price) {
   await database.ref(`gifts/${gift.firebaseKey}/currentMinted`).set(newMinted);
   gift.currentMinted = newMinted;
 
-  // Безопасное генерирование multiplier
   const roll = Math.random();
   let mult;
   if (price === 1000) {
@@ -257,7 +234,6 @@ async function openCase(price) {
     else mult = 0.3 + Math.random() * 0.7;
   }
 
-  // Приводим к числу и округляем
   const multiplier = parseFloat(mult.toFixed(4));
 
   userData.gifts.push({
@@ -265,7 +241,7 @@ async function openCase(price) {
     serial: newMinted,
     source: "case",
     enhanced: false,
-    selectedModel: gift.models?.[0] || "https://placehold.co/80x80/444444/FFFFFF?text=?",
+    selectedModel: gift.models?.[0] || "https://placehold.co/70x70/444444/FFFFFF?text=?",
     multiplier,
     baseValue: gift.stars || gift.fiton || 100
   });
@@ -290,10 +266,8 @@ function enhanceGift(i) {
     "radial-gradient(circle, #d299c2, #fef9d7)"
   ][Math.floor(Math.random() * 5)];
 
-  // Добавляем колебания курса после улучшения
-  if (typeof g.multiplier !== 'number') {
-    g.multiplier = 1.0;
-  }
+  // Колебания курса после улучшения
+  if (typeof g.multiplier !== 'number') g.multiplier = 1.0;
   g.multiplier = parseFloat((g.multiplier + (Math.random() - 0.5) * 0.5).toFixed(4));
 
   updateUI();
@@ -320,11 +294,13 @@ async function initApp() {
   initUserData();
   updateUI();
 
-  const adminBtn = document.getElementById("btn-admin");
-  if (adminBtn) {
-    adminBtn.style.display = publicProfile.id === "tg_6951407766" ? "block" : "none";
+  // Скрыть админку, если не тот ID
+  const btnAdmin = document.getElementById("btn-admin");
+  if (btnAdmin) {
+    btnAdmin.style.display = publicProfile.id === "tg_6951407766" ? "block" : "none";
   }
 
+  // Загрузка подарков из Firebase
   database.ref("gifts").on("value", (snapshot) => {
     giftsDB = snapshot.val() ? Object.entries(snapshot.val()).map(([k, v]) => ({ ...v, firebaseKey: k })) : [];
     if (!isAppReady) {
@@ -332,18 +308,7 @@ async function initApp() {
       isAppReady = true;
     }
   });
-
-  document.querySelectorAll(".chat").forEach(chat => {
-    chat.addEventListener("click", () => {
-      document.querySelectorAll(".chat").forEach(c => c.classList.remove("active"));
-      chat.classList.add("active");
-      if (chat.dataset.view === "profile") showMyProfilePage();
-      else if (chat.dataset.view === "cases") showCasesPage();
-      else showGiftsPage();
-    });
-  });
 }
 
+// Запуск
 initApp();
-initApp();
-
