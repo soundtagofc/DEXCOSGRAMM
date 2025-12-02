@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <title>Telegram NFT Gifts</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -10,54 +10,46 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body class="dark">
+  <!-- Бегущая строка -->
   <div class="marquee-banner">
     <span>🔥 БЕТАТЕСТ ОТКРЫТ! 🔥 БЕТАТЕСТ ОТКРЫТ! 🔥 БЕТАТЕСТ ОТКРЫТ! 🔥</span>
   </div>
 
   <div class="app-container">
-    <aside class="sidebar">
-      <div class="sidebar-header">
-        <h2>💬 GifDex</h2>
-        <div class="wallet-balance">
-          <span>⭐ <span id="balance-stars">0</span></span>
-          <span>💎 <span id="balance-fiton">0</span></span>
-        </div>
+    <!-- Мобильные табы -->
+    <div class="nav-tabs">
+      <div class="nav-tab active" data-view="gifts">
+        <div class="icon">🎁</div>
+        <div>Магазин</div>
       </div>
-      <div class="chats" id="chats-list">
-        <div class="chat active" data-view="gifts">
-          <div class="chat-avatar">🎁</div>
-          <div>
-            <div class="chat-name">Магазин</div>
-            <div class="chat-preview">Купите NFT</div>
-          </div>
-        </div>
-        <div class="chat" data-view="cases">
-          <div class="chat-avatar">📦</div>
-          <div>
-            <div class="chat-name">Кейсы</div>
-            <div class="chat-preview">Откройте редкий NFT!</div>
-          </div>
-        </div>
-        <div class="chat" data-view="profile">
-          <div class="chat-avatar">
-            <img src="https://placehold.co/40x40/5D3FD3/FFFFFF?text=👤" style="width:36px;height:36px;border-radius:50%;">
-          </div>
-          <div>
-            <div class="chat-name">Мой профиль</div>
-            <div class="chat-preview">Редактировать ник и аватар</div>
-          </div>
-        </div>
+      <div class="nav-tab" data-view="cases">
+        <div class="icon">📦</div>
+        <div>Кейсы</div>
       </div>
-      <div class="sidebar-footer">
-        <button id="btn-admin" class="admin-btn">🔒 Админка</button>
+      <div class="nav-tab" data-view="profile">
+        <div class="icon">👤</div>
+        <div>Профиль</div>
       </div>
-    </aside>
+    </div>
 
-    <main class="main-content" id="main-content">
-      <!-- Контент будет подгружаться сюда -->
-    </main>
+    <!-- Основной контент -->
+    <main class="main-content" id="main-content"></main>
   </div>
 
   <script src="script.js"></script>
+
+  <script>
+    // Инициализация табов
+    document.querySelectorAll(".nav-tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".nav-tab").forEach(t => t.classList.remove("active"));
+        tab.classList.add("active");
+        const view = tab.dataset.view;
+        if (view === "profile") showMyProfilePage();
+        else if (view === "cases") showCasesPage();
+        else showGiftsPage();
+      });
+    });
+  </script>
 </body>
 </html>
