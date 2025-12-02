@@ -1,4 +1,4 @@
-// 🔑 Firebase
+// 🔑 Firebase Config
 const firebaseConfig = {
   apiKey: "AIzaSyBiDLi2kyKzL1BsuF8o-qcFHGg7H9eBY1g",
   authDomain: "deedededxx.firebaseapp.com",
@@ -12,11 +12,12 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
-// === Telegram User ===
+// === Telegram User Init ===
 let publicProfile, userId;
 if (typeof window.Telegram?.WebApp !== "undefined") {
   const tg = window.Telegram.WebApp;
-  tg.expand(); tg.ready();
+  tg.expand();
+  tg.ready();
   const user = tg.initDataUnsafe?.user;
   if (user) {
     userId = "tg_" + user.id;
@@ -31,78 +32,105 @@ if (typeof window.Telegram?.WebApp !== "undefined") {
   }
 } else {
   userId = localStorage.getItem("userId") || ("dev_" + Date.now());
-  publicProfile = { id: userId, username: "Разработчик", avatar: "https://placehold.co/100x100/333333/FFFFFF?text=🛠️" };
+  publicProfile = {
+    id: userId,
+    username: "Разработчик",
+    avatar: "https://placehold.co/100x100/333333/FFFFFF?text=🛠️"
+  };
 }
 localStorage.setItem("userId", userId);
 
-// === Пользовательские данные ===
+// === User Data ===
 let userData = JSON.parse(localStorage.getItem("userData")) || {
   balance: { stars: 1000, fiton: 500 },
   gifts: []
 };
 
 let giftsDB = [];
+let isInitialized = false;
 
 const balanceStarsEl = document.getElementById("balance-stars");
 const balanceFitonEl = document.getElementById("balance-fiton");
 const mainContent = document.getElementById("main-content");
+const chatsList = document.getElementById("chats-list");
 
-// === Инициализация ===
+// === Init App ===
 async function initApp() {
   await loadUserProfile();
   loadGiftsFromFirebase();
   updateUserUI();
 
-  // Админка только для 6951407766
-  document.getElementById("btn-admin").style.display = (publicProfile.id === "tg_6951407766") ? "block" : "none";
+  // Показать админку только для ID 6951407766
+  const btnAdmin = document.getElementById("btn-admin");
+  if (btnAdmin) {
+    btnAdmin.style.display = (publicProfile.id === "tg_6951407766") ? "block" : "none";
+  }
 
-  // Запуск курса
+  // Запустить симуляцию цен
   startPriceSimulation();
+
+  // Показать начальную страницу
   showGiftsPage();
+  isInitialized = true;
 }
 
-// === Загрузка профиля ===
+// === Load Profile ===
 async function loadUserProfile() {
   const profileRef = database.ref(`users/${userId}`);
   const snapshot = await profileRef.once("value");
-  if (snapshot.exists()) publicProfile = snapshot.val();
-  else await profileRef.set(publicProfile);
+  if (snapshot.exists()) {
+    publicProfile = snapshot.val();
+  } else {
+    await profileRef.set(publicProfile);
+  }
   localStorage.setItem("publicProfile", JSON.stringify(publicProfile));
 }
 
-// === Обновление UI ===
+// === Save Profile ===
+async function saveProfile() {
+  await database.ref(`users/${userId}`).set(publicProfile);
+  localStorage.setItem("publicProfile", JSON.stringify(publicProfile));
+  alert("✅ Профиль обновлён!");
+}
+
+// === Update UI ===
 function updateUserUI() {
-  balanceStarsEl.textContent = userData.balance.stars;
-  balanceFitonEl.textContent = userData.balance.fiton;
+  if (balanceStarsEl) balanceStarsEl.textContent = userData.balance.stars;
+  if (balanceFitonEl) balanceFitonEl.textContent = userData.balance.fiton;
   localStorage.setItem("userData", JSON.stringify(userData));
 }
 
-// === Загрузка подарков ===
+// === Load Gifts ===
 function loadGiftsFromFirebase() {
   database.ref("gifts").on("value", (snapshot) => {
     const data = snapshot.val();
     giftsDB = data ? Object.entries(data).map(([key, val]) => ({ ...val, firebaseKey: key })) : [];
-    renderCurrentPage();
+    if (isInitialized && window.location.hash === "#gifts") {
+      showGiftsPage();
+    }
   });
 }
 
-// === КРИПТО-КУРС: симуляция цен ===
+// === Price Simulation (for enhanced NFTs) ===
 function startPriceSimulation() {
   setInterval(() => {
+    let updated = false;
     userData.gifts.forEach(gift => {
-      if (!gift.enhanced) return; // Только улучшенные NFT колеблются!
-
-      // Волатильность зависит от rarity (можно расширить)
-      const volatility = 0.03; // ±3% за тик
-      const change = (Math.random() - 0.5) * volatility * 2;
-      gift.multiplier = Math.max(0.01, gift.multiplier + change);
-      gift.multiplier = parseFloat(gift.multiplier.toFixed(4));
+      if (gift.enhanced) {
+        const volatility = 0.03;
+        const change = (Math.random() - 0.5) * volatility * 2;
+        gift.multiplier = Math.max(0.01, gift.multiplier + change);
+        gift.multiplier = parseFloat(gift.multiplier.toFixed(4));
+        updated = true;
+      }
     });
-    if (window.location.hash === "#profile") showMyProfilePage(); // Обновить только если открыт профиль
-  }, 10000); // каждые 10 секунд
+    if (updated && window.location.hash === "#profile") {
+      showMyProfilePage();
+    }
+  }, 10000);
 }
 
-// === Покупка ===
+// === Buy Gift ===
 async function buyGift(firebaseKey) {
   const gift = giftsDB.find(g => g.firebaseKey === firebaseKey);
   if (!gift || gift.currentMinted >= gift.totalSupply) return alert("Недоступно");
@@ -121,17 +149,16 @@ async function buyGift(firebaseKey) {
     serial: newMinted,
     source: "shop",
     enhanced: false,
-    selectedModel: gift.models[0],
+    selectedModel: gift.models?.[0] || "https://placehold.co/80x80/444444/FFFFFF?text=?",
     multiplier,
-    baseValue,
-    lastPrice: Math.floor(baseValue * multiplier)
+    baseValue
   });
   updateUserUI();
   alert(`✅ Куплено: ${gift.name} #${newMinted}`);
   showGiftsPage();
 }
 
-// === Кейсы (только 2) ===
+// === Open Case ===
 async function openCase(price) {
   if (userData.balance.stars < price) return alert("Не хватает Stars!");
   if (![500, 1000].includes(price)) return;
@@ -166,16 +193,15 @@ async function openCase(price) {
     serial: newMinted,
     source: "case",
     enhanced: false,
-    selectedModel: gift.models[0],
+    selectedModel: gift.models?.[0] || "https://placehold.co/80x80/444444/FFFFFF?text=?",
     multiplier: parseFloat(multiplier.toFixed(4)),
-    baseValue,
-    lastPrice: Math.floor(baseValue * multiplier)
+    baseValue
   });
   updateUserUI();
   showCasesPage();
 }
 
-// === Улучшение ===
+// === Enhance Gift ===
 function enhanceGift(index) {
   const gift = userData.gifts[index];
   if (!gift || gift.enhanced) return alert("Уже улучшено!");
@@ -186,14 +212,20 @@ function enhanceGift(index) {
   userData.balance.stars -= 50;
   gift.enhanced = true;
   gift.selectedModel = altModels[Math.floor(Math.random() * altModels.length)];
-  gift.background = ["radial-gradient(circle, #ff9a9e, #fad0c4)", "radial-gradient(circle, #a1c4fd, #c2e9fb)", "radial-gradient(circle, #ffecd2, #fcb69f)", "radial-gradient(circle, #8fd3f4, #43e97b)", "radial-gradient(circle, #d299c2, #fef9d7)"][Math.floor(Math.random() * 5)];
+  gift.background = [
+    "radial-gradient(circle, #ff9a9e, #fad0c4)",
+    "radial-gradient(circle, #a1c4fd, #c2e9fb)",
+    "radial-gradient(circle, #ffecd2, #fcb69f)",
+    "radial-gradient(circle, #8fd3f4, #43e97b)",
+    "radial-gradient(circle, #d299c2, #fef9d7)"
+  ][Math.floor(Math.random() * 5)];
 
   updateUserUI();
   showMyProfilePage();
-  alert("🚀 NFT улучшен! Теперь его цена будет колебаться как криптовалюта!");
+  alert("🚀 NFT улучшен! Теперь его цена колеблется как криптовалюта!");
 }
 
-// === Продажа ===
+// === Sell Gift ===
 function sellGift(index) {
   const gift = userData.gifts[index];
   if (!gift) return;
@@ -205,7 +237,23 @@ function sellGift(index) {
   alert(`💰 Продано за ${value} Stars!`);
 }
 
-// === Страницы ===
+// === Update Profile ===
+function updateMyProfile() {
+  const usernameInput = document.getElementById("edit-username");
+  const avatarInput = document.getElementById("edit-avatar");
+  if (!usernameInput || !avatarInput) return;
+
+  const newUsername = usernameInput.value.trim();
+  const newAvatar = avatarInput.value.trim();
+  if (!newUsername) return alert("Введите ник!");
+  if (!newAvatar) return alert("Введите URL аватарки!");
+
+  publicProfile.username = newUsername;
+  publicProfile.avatar = newAvatar;
+  saveProfile();
+}
+
+// === Page Renderers ===
 function showGiftsPage() {
   window.location.hash = "#gifts";
   let html = `<div class="chat-header"><div class="chat-avatar">🎁</div><div class="chat-title">Магазин</div></div><div class="gifts-grid">`;
@@ -222,6 +270,7 @@ function showGiftsPage() {
       </div>
     `;
   });
+  html += `</div>`;
   mainContent.innerHTML = html;
 }
 
@@ -256,7 +305,12 @@ function showMyProfilePage() {
     <div class="profile-section">
       <div class="balance-info">⭐ Stars: ${userData.balance.stars} | 💎 FITON: ${userData.balance.fiton}</div>
       
-      <h3>Мои NFT (${userData.gifts.length})</h3>
+      <h3>Редактировать профиль</h3>
+      <input type="text" id="edit-username" value="${publicProfile.username}" placeholder="Никнейм">
+      <input type="url" id="edit-avatar" value="${publicProfile.avatar}" placeholder="URL аватарки">
+      <button class="buy-btn" onclick="updateMyProfile()">Сохранить</button>
+
+      <h3 style="margin-top:20px;">Мои NFT (${userData.gifts.length})</h3>
   `;
 
   if (userData.gifts.length === 0) {
@@ -265,9 +319,9 @@ function showMyProfilePage() {
     html += `<div class="gifts-grid">`;
     userData.gifts.forEach((gift, i) => {
       const currentPrice = Math.floor(gift.baseValue * gift.multiplier);
-      const priceDiff = currentPrice - (gift.lastPrice || currentPrice);
+      const priceDiff = currentPrice - (gift._prevPrice || currentPrice);
       const priceClass = priceDiff > 0 ? "up" : priceDiff < 0 ? "down" : "";
-      gift.lastPrice = currentPrice;
+      gift._prevPrice = currentPrice;
 
       const bg = gift.background || "var(--bg-tertiary)";
       const model = gift.selectedModel || (gift.models?.[0] || "https://placehold.co/80x80/444444/FFFFFF?text=?");
@@ -289,13 +343,29 @@ function showMyProfilePage() {
   mainContent.innerHTML = html;
 }
 
-// === Навигация ===
-document.querySelectorAll(".chat").forEach(chat => {
-  chat.addEventListener("click", () => {
+// === Navigation ===
+if (chatsList) {
+  chatsList.addEventListener("click", (e) => {
+    const chat = e.target.closest(".chat");
+    if (!chat) return;
+
     document.querySelectorAll(".chat").forEach(c => c.classList.remove("active"));
     chat.classList.add("active");
-    ({ gifts: showGiftsPage, cases: showCasesPage, profile: showMyProfilePage })[chat.dataset.view]();
+
+    const view = chat.dataset.view;
+    if (view === "profile") showMyProfilePage();
+    else if (view === "cases") showCasesPage();
+    else showGiftsPage();
   });
+}
+
+// === Hash Handling (optional, but safe) ===
+window.addEventListener("hashchange", () => {
+  if (!isInitialized) return;
+  if (window.location.hash === "#cases") showCasesPage();
+  else if (window.location.hash === "#profile") showMyProfilePage();
+  else showGiftsPage();
 });
 
+// === Start App ===
 initApp();
