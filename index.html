@@ -26,6 +26,10 @@
         <div class="icon">📦</div>
         <div>Кейсы</div>
       </div>
+      <div class="nav-tab" data-view="mining">
+        <div class="icon">⛏️</div>
+        <div>Майнинг</div>
+      </div>
       <div class="nav-tab" data-view="profile">
         <div class="icon">👤</div>
         <div>Профиль</div>
@@ -36,20 +40,20 @@
     <main class="main-content" id="main-content"></main>
   </div>
 
-  <script src="script.js"></script>
+  <!-- Модалка анимации кейса -->
+  <div id="case-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="case-animation">
+        <div class="case-box">📦</div>
+        <div class="sparkle">✨</div>
+        <div class="sparkle">✨</div>
+        <div class="sparkle">✨</div>
+      </div>
+      <div class="case-result" id="case-result"></div>
+      <button class="buy-btn" id="close-case-modal">Закрыть</button>
+    </div>
+  </div>
 
-  <script>
-    // Инициализация табов
-    document.querySelectorAll(".nav-tab").forEach(tab => {
-      tab.addEventListener("click", () => {
-        document.querySelectorAll(".nav-tab").forEach(t => t.classList.remove("active"));
-        tab.classList.add("active");
-        const view = tab.dataset.view;
-        if (view === "profile") showMyProfilePage();
-        else if (view === "cases") showCasesPage();
-        else showGiftsPage();
-      });
-    });
-  </script>
+  <script src="script.js"></script>
 </body>
 </html>
