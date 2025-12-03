@@ -1,4 +1,5 @@
 // === Firebase // ==
+
 const firebaseConfig = {
   apiKey: "AIzaSyBiDLi2kyKzL1BsuF8o-qcFHGg7H9eBY1g",
   authDomain: "deedededxx.firebaseapp.com",
@@ -11,20 +12,19 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
-const BOT_USERNAME = "your_bot"; // ← ЗАМЕНИ НА ИМЯ СВОЕГО БОТА!
+const BOT_USERNAME = "your_bot"; // ← ЗАМЕНИ НА ИМЯ ТВОЕГО БОТА!
 
 let publicProfile, userId, giftsDB = [], userDataLoaded = false;
 let currentBalance = { stars: 1000, fiton: 500 };
 let currentGifts = [];
 let miningData = { active: false, startTime: null, lastClaim: null };
 
-// === Инициализация пользователя (Telegram или Debug) ===
+// === Инициализация пользователя ===
 function initUser() {
   const urlParams = new URLSearchParams(window.location.search);
   const isDebug = urlParams.get("debug") === "true";
 
   if (isDebug) {
-    // 🔧 Режим отладки
     userId = "tg_6951407766";
     publicProfile = {
       id: userId,
@@ -35,7 +35,6 @@ function initUser() {
     return true;
   }
 
-  // Telegram WebApp
   if (typeof window.Telegram?.WebApp !== "undefined") {
     const tg = window.Telegram.WebApp;
     tg.expand(); tg.ready();
@@ -278,6 +277,7 @@ function showMyProfilePage() {
       const priceClass = currentPrice > lastPrice ? "up" : currentPrice < lastPrice ? "down" : "";
       gift._last = currentPrice;
       const model = gift.selectedModel || (gift.models?.[0] || "https://placehold.co/70x70/444444/FFFFFF?text=?");
+      // ✅ Гарантируем, что фон есть
       const bg = gift.background || "var(--bg-tertiary)";
       const textColor = (bg === "#ffffff") ? "#000000" : "#ffffff";
       html += `
@@ -303,7 +303,7 @@ function showMyProfilePage() {
   mainContent.innerHTML = html;
 }
 
-// === Улучшение подарка с редкими фонами ===
+// === ✅ ИСПРАВЛЕНО: Улучшение подарка — сразу применяется ===
 async function enhanceGift(i) {
   const g = currentGifts[i];
   if (!g || g.enhanced) return alert("Уже улучшено!");
@@ -334,6 +334,8 @@ async function enhanceGift(i) {
   } else {
     background = "#ffffff";
   }
+
+  // ✅ Обязательно сохраняем фон
   g.background = background;
 
   if (typeof g.multiplier !== 'number') g.multiplier = 1.0;
@@ -341,8 +343,12 @@ async function enhanceGift(i) {
 
   await saveUserDataToFirebase();
   updateUI();
-  showMyProfilePage();
-  
+
+  // ✅ Принудительное обновление через короткую задержку
+  setTimeout(() => {
+    showMyProfilePage();
+  }, 100);
+
   if (background === "#000000" || background === "#ffffff") {
     const colorName = background === "#000000" ? "чёрный" : "белый";
     alert(`🎉 УЛУЧШЕНИЕ УСПЕШНО!\nВыпал РЕДКИЙ ${colorName} фон!`);
@@ -457,7 +463,7 @@ async function buyGift(key) {
   showGiftsPage();
 }
 
-// === Запуск приложения ===
+// === Запуск ===
 async function initApp() {
   const success = initUser();
   if (!success) return;
@@ -465,13 +471,6 @@ async function initApp() {
   await loadUserDataFromFirebase();
   updateUI();
 
-  // Скрыть админку (если есть)
-  const btnAdmin = document.getElementById("btn-admin");
-  if (btnAdmin) {
-    btnAdmin.style.display = publicProfile.id === "tg_6951407766" ? "block" : "none";
-  }
-
-  // Загрузка подарков
   database.ref("gifts").on("value", (snapshot) => {
     giftsDB = snapshot.val() ? Object.entries(snapshot.val()).map(([k, v]) => ({ ...v, firebaseKey: k })) : [];
     if (!userDataLoaded) {
@@ -480,7 +479,6 @@ async function initApp() {
     }
   });
 
-  // Навигация
   document.querySelectorAll(".nav-tab").forEach(tab => {
     tab.addEventListener("click", () => {
       document.querySelectorAll(".nav-tab").forEach(t => t.classList.remove("active"));
@@ -494,5 +492,4 @@ async function initApp() {
   });
 }
 
-// Запуск
 window.addEventListener("load", initApp);
