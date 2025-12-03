@@ -26,7 +26,6 @@ body.dark {
   overflow-x: hidden;
 }
 
-/* Бегущая строка */
 .marquee-banner {
   background: linear-gradient(90deg, #ff416c, #ff4b2b);
   color: white;
@@ -48,7 +47,6 @@ body.dark {
   100% { transform: translateX(-100%); }
 }
 
-/* Мобильная адаптация */
 .app-container {
   display: flex;
   flex-direction: column;
@@ -108,7 +106,6 @@ body.dark {
   font-weight: 700;
 }
 
-/* Вертикальный список подарков */
 .gifts-list {
   display: flex;
   flex-direction: column;
@@ -193,7 +190,6 @@ body.dark {
   font-size: 16px;
 }
 
-/* Модалка анимации кейса */
 .modal {
   position: fixed;
   top: 0;
@@ -258,14 +254,3 @@ body.dark {
 .hidden {
   display: none !important;
 }
-
-/* Адаптация под десктоп */
-@media (min-width: 768px) {
-  .app-container {
-    flex-direction: row;
-    height: calc(100vh - 40px);
-  }
-  .nav-tabs { display: none; }
-  .sidebar { /* если добавишь сайдбар */ }
-}
-
