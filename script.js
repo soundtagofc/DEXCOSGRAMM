@@ -1,4 +1,4 @@
-// === Firebase Config // ===
+// === Firebase // ==
 const firebaseConfig = {
   apiKey: "AIzaSyBiDLi2kyKzL1BsuF8o-qcFHGg7H9eBY1g",
   authDomain: "deedededxx.firebaseapp.com",
@@ -11,21 +11,35 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
-const BOT_USERNAME = "your_bot"; // ← ЗАМЕНИ НА ИМЯ ТВОЕГО БОТА!
+const BOT_USERNAME = "your_bot"; // ← ЗАМЕНИ НА ИМЯ СВОЕГО БОТА!
 
 let publicProfile, userId, giftsDB = [], userDataLoaded = false;
 let currentBalance = { stars: 1000, fiton: 500 };
 let currentGifts = [];
 let miningData = { active: false, startTime: null, lastClaim: null };
 
-// === Инициализация пользователя ===
+// === Инициализация пользователя (Telegram или Debug) ===
 function initUser() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const isDebug = urlParams.get("debug") === "true";
+
+  if (isDebug) {
+    // 🔧 Режим отладки
+    userId = "tg_6951407766";
+    publicProfile = {
+      id: userId,
+      username: "Отладчик",
+      avatar: "https://placehold.co/100x100/5D3FD3/FFFFFF?text=🛠️"
+    };
+    console.log("✅ Режим отладки активирован");
+    return true;
+  }
+
+  // Telegram WebApp
   if (typeof window.Telegram?.WebApp !== "undefined") {
     const tg = window.Telegram.WebApp;
     tg.expand(); tg.ready();
     const user = tg.initDataUnsafe?.user;
-    const startParam = tg.initDataUnsafe?.start_param;
-
     if (user) {
       userId = "tg_" + user.id;
       publicProfile = {
@@ -33,44 +47,30 @@ function initUser() {
         username: user.username || ("Игрок_" + user.id.toString().slice(-4)),
         avatar: user.photo_url || "https://placehold.co/100x100/5D3FD3/FFFFFF?text=👤"
       };
-
-      if (startParam && startParam.startsWith("ref_")) {
-        const referrerId = "tg_" + startParam.substring(4);
-        if (referrerId !== userId) {
-          database.ref(`users/${userId}/referredBy`).once("value", (snapshot) => {
-            if (!snapshot.exists()) {
-              database.ref(`users/${userId}`).update({ referredBy: referrerId });
-              rewardReferrer(referrerId);
-            }
-          });
-        }
-      }
       return true;
     } else {
-      alert("⚠️ Откройте через Telegram бота.");
+      showTelegramOnlyMessage();
       return false;
     }
   } else {
-    userId = "dev_" + Date.now();
-    publicProfile = { id: userId, username: "Разработчик", avatar: "https://placehold.co/100x100/333333/FFFFFF?text=🛠️" };
-    return true;
+    showTelegramOnlyMessage();
+    return false;
   }
 }
 
-// === Награда рефереру ===
-async function rewardReferrer(referrerId) {
-  try {
-    const refUserRef = database.ref(`users/${referrerId}`);
-    const snapshot = await refUserRef.once("value");
-    if (snapshot.exists()) {
-      const refData = snapshot.val();
-      const newBalance = (refData.balance?.stars || 0) + 350;
-      await refUserRef.update({ "balance.stars": newBalance });
-    }
-  } catch (e) { console.error(e); }
+function showTelegramOnlyMessage() {
+  const mainContent = document.getElementById("main-content");
+  if (!mainContent) return;
+  mainContent.innerHTML = `
+    <div style="padding: 30px; text-align: center; background: var(--bg-tertiary); margin: 20px; border-radius: 12px;">
+      <h2>🔒 Только через Telegram</h2>
+      <p>Откройте через бота: <a href="https://t.me/${BOT_USERNAME}" target="_blank">@${BOT_USERNAME}</a></p>
+      <p>Или добавьте <code>?debug=true</code> к URL для отладки</p>
+    </div>
+  `;
 }
 
-// === Загрузка данных ===
+// === Загрузка данных из Firebase ===
 async function loadUserDataFromFirebase() {
   if (!userId) return;
   const userRef = database.ref(`users/${userId}`);
@@ -105,7 +105,7 @@ async function saveUserDataToFirebase() {
   });
 }
 
-// === Обновление UI ===
+// === UI ===
 function updateUI() {
   const balanceStarsEl = document.getElementById("balance-stars");
   const balanceFitonEl = document.getElementById("balance-fiton");
@@ -113,7 +113,6 @@ function updateUI() {
   if (balanceFitonEl) balanceFitonEl.textContent = currentBalance.fiton;
 }
 
-// === Профиль ===
 async function saveProfile() {
   await database.ref(`users/${userId}`).update({
     username: publicProfile.username,
@@ -143,7 +142,7 @@ async function claimMiningReward() {
     miningData.lastClaim = lastClaim + hoursPassed * oneHour;
     await saveUserDataToFirebase();
     updateUI();
-    alert(`⛏️ Вы получили ${reward} Stars от майнинга!`);
+    alert(`⛏️ Вы получили ${reward} Stars!`);
   }
 }
 async function toggleMining() {
@@ -157,7 +156,7 @@ async function toggleMining() {
     miningData.active = true;
     miningData.startTime = Date.now();
     miningData.lastClaim = Date.now();
-    alert("▶️ Майнинг запущен! За каждый час вы получите 150 Stars.");
+    alert("▶️ Майнинг запущен!");
   }
   await saveUserDataToFirebase();
   showMiningPage();
@@ -202,8 +201,55 @@ function copyRefLink(link) {
   navigator.clipboard.writeText(link).then(() => alert("✅ Ссылка скопирована!")).catch(() => alert("Скопируйте вручную"));
 }
 
-function showGiftsPage() { /* без изменений */ }
-function showCasesPage() { /* без изменений */ }
+function showGiftsPage() {
+  const mainContent = document.getElementById("main-content");
+  if (!mainContent) return;
+  let html = `<div class="chat-header"><div class="chat-avatar">🎁</div><div class="chat-title">Магазин</div></div><div class="gifts-list">`;
+  giftsDB.forEach(gift => {
+    const rem = gift.totalSupply - gift.currentMinted;
+    const img = gift.models?.[0] || "https://placehold.co/70x70/444444/FFFFFF?text=?";
+    html += `
+      <div class="gift-card">
+        <img src="${img}" alt="${gift.name}">
+        <div class="gift-info">
+          <h4>${gift.name}</h4>
+          <div class="price">${gift.stars ? `⭐ ${gift.stars}` : `💎 ${gift.fiton}`}</div>
+          <div style="font-size:12px;color:#aaa;">${rem}/${gift.totalSupply}</div>
+          ${rem > 0 ? `<button class="buy-btn small" onclick="buyGift('${gift.firebaseKey}')">Купить</button>` : `<button disabled>Исчерпано</button>`}
+        </div>
+      </div>
+    `;
+  });
+  html += `</div>`;
+  mainContent.innerHTML = html;
+}
+
+function showCasesPage() {
+  const mainContent = document.getElementById("main-content");
+  if (!mainContent) return;
+  mainContent.innerHTML = `
+    <div class="chat-header"><div class="chat-avatar">📦</div><div class="chat-title">Кейсы</div></div>
+    <div class="gifts-list">
+      <div class="gift-card" style="text-align:center;">
+        <div style="font-size:48px;">📦</div>
+        <div class="gift-info">
+          <h4>Кейс «Стандарт»</h4>
+          <div class="price">500⭐</div>
+          <button class="buy-btn small" onclick="openCase(500)">Открыть</button>
+        </div>
+      </div>
+      <div class="gift-card" style="text-align:center; border: 2px solid gold; background: rgba(255,215,0,0.1);">
+        <div style="font-size:48px;">💎</div>
+        <div class="gift-info">
+          <h4>Кейс «Премиум»</h4>
+          <div class="price">1000⭐</div>
+          <button class="buy-btn small" style="background: gold; color: #000;" onclick="openCase(1000)">Открыть</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function showMyProfilePage() {
   const mainContent = document.getElementById("main-content");
   if (!mainContent) return;
@@ -301,20 +347,31 @@ async function enhanceGift(i) {
     const colorName = background === "#000000" ? "чёрный" : "белый";
     alert(`🎉 УЛУЧШЕНИЕ УСПЕШНО!\nВыпал РЕДКИЙ ${colorName} фон!`);
   } else {
-    alert("🚀 Подарок улучшен! Новый фон применён.");
+    alert("🚀 Подарок улучшен!");
   }
 }
 
 // === Продажа ===
-async function sellGift(i) { /* без изменений */ }
+async function sellGift(i) {
+  const g = currentGifts[i];
+  if (!g) return;
+  const baseValue = g.baseValue || 100;
+  const multiplier = typeof g.multiplier === 'number' ? g.multiplier : 1.0;
+  const val = Math.floor(baseValue * multiplier);
+  currentBalance.stars += val;
+  currentGifts.splice(i, 1);
+  await saveUserDataToFirebase();
+  updateUI();
+  showMyProfilePage();
+  alert(`💰 Продано за ${val} Stars!`);
+}
 
-// === Анимация открытия кейса ===
+// === Анимация кейса ===
 function showCaseAnimation(gift, price) {
   const modal = document.getElementById("case-modal");
   const resultDiv = document.getElementById("case-result");
   modal.classList.remove("hidden");
   
-  // Анимация длится ~2 секунды
   setTimeout(() => {
     const img = gift.models?.[0] || "https://placehold.co/80x80/444444/FFFFFF?text=?";
     const value = Math.floor(gift.baseValue * gift.multiplier);
@@ -371,16 +428,50 @@ async function openCase(price) {
 }
 
 // === Покупка ===
-async function buyGift(key) { /* без изменений, но без анимации */ }
+async function buyGift(key) {
+  const gift = giftsDB.find(g => g.firebaseKey === key);
+  if (!gift || gift.currentMinted >= gift.totalSupply) return alert("Недоступно");
+  if (currentBalance.stars < (gift.stars || 0)) return alert("Не хватает Stars!");
 
-// === Инициализация ===
+  currentBalance.stars -= gift.stars || 0;
+  const newMinted = gift.currentMinted + 1;
+  await database.ref(`gifts/${key}/currentMinted`).set(newMinted);
+  gift.currentMinted = newMinted;
+
+  const baseValue = gift.stars || gift.fiton || 100;
+  const multiplier = parseFloat((0.8 + Math.random() * 0.5).toFixed(4));
+
+  currentGifts.push({
+    ...gift,
+    serial: newMinted,
+    source: "shop",
+    enhanced: false,
+    selectedModel: gift.models?.[0] || "https://placehold.co/70x70/444444/FFFFFF?text=?",
+    multiplier,
+    baseValue
+  });
+
+  await saveUserDataToFirebase();
+  updateUI();
+  alert(`✅ Куплено: ${gift.name}`);
+  showGiftsPage();
+}
+
+// === Запуск приложения ===
 async function initApp() {
   const success = initUser();
   if (!success) return;
+
   await loadUserDataFromFirebase();
   updateUI();
+
+  // Скрыть админку (если есть)
   const btnAdmin = document.getElementById("btn-admin");
-  if (btnAdmin) btnAdmin.style.display = publicProfile.id === "tg_6951407766" ? "block" : "none";
+  if (btnAdmin) {
+    btnAdmin.style.display = publicProfile.id === "tg_6951407766" ? "block" : "none";
+  }
+
+  // Загрузка подарков
   database.ref("gifts").on("value", (snapshot) => {
     giftsDB = snapshot.val() ? Object.entries(snapshot.val()).map(([k, v]) => ({ ...v, firebaseKey: k })) : [];
     if (!userDataLoaded) {
@@ -388,6 +479,8 @@ async function initApp() {
       userDataLoaded = true;
     }
   });
+
+  // Навигация
   document.querySelectorAll(".nav-tab").forEach(tab => {
     tab.addEventListener("click", () => {
       document.querySelectorAll(".nav-tab").forEach(t => t.classList.remove("active"));
@@ -400,6 +493,6 @@ async function initApp() {
     });
   });
 }
-initApp();
 
-
+// Запуск
+window.addEventListener("load", initApp);
