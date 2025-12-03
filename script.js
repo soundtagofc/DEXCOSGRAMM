@@ -12,7 +12,7 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
-const BOT_USERNAME = "gifdexbot"; // ← ЗАМЕНИ НА ИМЯ ТВОЕГО БОТА!
+const BOT_USERNAME = "your_bot"; // ← ЗАМЕНИ НА ИМЯ ТВОЕГО БОТА!
 
 let publicProfile, userId, giftsDB = [], userDataLoaded = false;
 let currentBalance = { stars: 1000, fiton: 500 };
@@ -249,7 +249,7 @@ function showCasesPage() {
   `;
 }
 
-// === ✅ ОСНОВНОЙ ПРОФИЛЬ: с поиском по нику и ID ===
+// === ✅ ОСНОВНОЙ ПРОФИЛЬ: с историей транзакций ===
 function showMyProfilePage() {
   const mainContent = document.getElementById("main-content");
   if (!mainContent) return;
@@ -300,6 +300,7 @@ function showMyProfilePage() {
                 `<button class="buy-btn small" onclick="enhanceGift(${i})">Улучшить</button>` : 
                 `<span class="price">✅ Улучшен</span>`}
               <button class="buy-btn small" style="background:#ff5555;" onclick="sellGift(${i})">Продать</button>
+              <button class="buy-btn small" style="background:#4ecdc4;" onclick="transferGift(${i})">Передать</button>
             </div>
           </div>
         </div>
@@ -307,11 +308,57 @@ function showMyProfilePage() {
     });
     html += `</div>`;
   }
-  html += `</div>`;
+
+  // === ✅ История транзакций ===
+  html += `
+      <h3 style="margin-top:30px;">📅 История транзакций</h3>
+      <div id="transactions-list" style="background: var(--bg-tertiary); padding: 12px; border-radius: 12px; max-height: 200px; overflow-y: auto;">
+        <p style="color:#aaa; text-align:center;">Загрузка...</p>
+      </div>
+    </div>
+  `;
   mainContent.innerHTML = html;
+
+  // Загружаем историю
+  loadTransactionHistory();
 }
 
-// === ✅ Улучшение подарка (исправлено) ===
+// === ✅ Загрузка истории транзакций ===
+async function loadTransactionHistory() {
+  const transactionsRef = database.ref(`transactions/${userId}`);
+  const snapshot = await transactionsRef.once("value");
+  const transactions = snapshot.val() || {};
+
+  const container = document.getElementById("transactions-list");
+  if (!container) return;
+
+  const txList = Object.values(transactions).sort((a, b) => b.timestamp - a.timestamp);
+  if (txList.length === 0) {
+    container.innerHTML = `<p style="color:#aaa; text-align:center;">Нет транзакций</p>`;
+    return;
+  }
+
+  let html = "";
+  txList.slice(0, 20).forEach(tx => {
+    const date = new Date(tx.timestamp).toLocaleString("ru-RU", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+    let message = "";
+    if (tx.type === "sent") {
+      message = `📤 Передано: ${tx.giftName} → ${tx.toUsername || tx.toId}`;
+    } else if (tx.type === "received") {
+      message = `📥 Получено: ${tx.giftName} от ${tx.fromUsername || tx.fromId}`;
+    }
+    html += `<div style="font-size:14px; margin:8px 0;">${date}<br><b>${message}</b></div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+// === ✅ Улучшение подарка ===
 async function enhanceGift(i) {
   const g = currentGifts[i];
   if (!g || g.enhanced) return alert("Уже улучшено!");
@@ -469,7 +516,75 @@ async function buyGift(key) {
   showGiftsPage();
 }
 
-// === 🔍 ПОИСК ПРОФИЛЯ ПО НИКУ ИЛИ ID ===
+// === 🔁 ПЕРЕДАЧА NFT С ПОДТВЕРЖДЕНИЕМ ===
+async function transferGift(giftIndex) {
+  const gift = currentGifts[giftIndex];
+  if (!gift) return alert("Подарок не найден.");
+
+  const targetIdStr = prompt("🎁 Введите Telegram ID получателя (только цифры):");
+  if (!targetIdStr) return;
+
+  const targetIdClean = targetIdStr.trim();
+  if (!/^\d+$/.test(targetIdClean)) {
+    return alert("Некорректный ID. Введите только цифры.");
+  }
+
+  const confirm = prompt(`Подтвердите передачу:\n\n"${gift.name}" → ID ${targetIdClean}\n\nВведите "ДА" для подтверждения:`);
+  if (confirm !== "ДА") {
+    return alert("Передача отменена.");
+  }
+
+  const targetUserId = "tg_" + targetIdClean;
+  const senderUserId = userId;
+
+  // Проверяем получателя
+  const targetRef = database.ref(`users/${targetUserId}`);
+  const targetSnapshot = await targetRef.once("value");
+  if (!targetSnapshot.exists()) {
+    return alert("Получатель не найден.");
+  }
+
+  // Удаляем у отправителя
+  currentGifts.splice(giftIndex, 1);
+
+  // Добавляем получателю
+  const targetData = targetSnapshot.val();
+  const updatedGifts = [...(targetData.gifts || []), gift];
+
+  // Обновляем данные
+  await database.ref(`users/${senderUserId}`).update({ gifts: currentGifts });
+  await targetRef.update({ gifts: updatedGifts });
+
+  // === ✅ Логируем транзакцию ===
+  const timestamp = Date.now();
+  const txId = "tx_" + timestamp;
+
+  // Для отправителя
+  await database.ref(`transactions/${senderUserId}/${txId}`).set({
+    type: "sent",
+    giftName: gift.name,
+    toId: targetIdClean,
+    toUsername: targetData.username || "Игрок_" + targetIdClean.slice(-4),
+    timestamp
+  });
+
+  // Для получателя
+  await database.ref(`transactions/${targetUserId}/${txId}`).set({
+    type: "received",
+    giftName: gift.name,
+    fromId: senderUserId.replace("tg_", ""),
+    fromUsername: publicProfile.username,
+    timestamp
+  });
+
+  await saveUserDataToFirebase();
+  updateUI();
+  showMyProfilePage();
+
+  alert(`✅ Подарок "${gift.name}" передан игроку ID ${targetIdClean}!`);
+}
+
+// === Поиск профиля ===
 async function searchProfile() {
   const query = document.getElementById("search-query")?.value.trim();
   if (!query) return alert("Введите никнейм или ID!");
@@ -480,7 +595,6 @@ async function searchProfile() {
 
   let targetUser = null;
 
-  // Сначала пробуем как ID
   if (/^\d+$/.test(query)) {
     const fullId = "tg_" + query;
     if (users[fullId]) {
@@ -488,7 +602,6 @@ async function searchProfile() {
     }
   }
 
-  // Если не найдено — ищем по нику
   if (!targetUser) {
     for (const key in users) {
       if (users[key].username === query) {
@@ -506,7 +619,7 @@ async function searchProfile() {
   showOtherProfile(targetUser);
 }
 
-// === 👤 ПРОСМОТР ЧУЖОГО ПРОФИЛЯ ===
+// === Просмотр чужого профиля ===
 function showOtherProfile(user) {
   const mainContent = document.getElementById("main-content");
   if (!mainContent) return;
@@ -520,7 +633,19 @@ function showOtherProfile(user) {
     <div class="profile-section">
       <div class="balance-info">⭐ NFT: ${gifts.length}</div>
       <button class="buy-btn" onclick="showMyProfilePage()">← Назад к моему профилю</button>
+  `;
 
+  if (publicProfile.id === "tg_6951407766") {
+    html += `
+      <h3 style="margin-top:20px;">🎁 Выдать уникальный подарок</h3>
+      <input type="text" id="admin-gift-name" placeholder="Название подарка" value="Уникальный подарок">
+      <input type="url" id="admin-gift-model" placeholder="URL модели" value="https://placehold.co/80x80/4ecdc4/FFFFFF?text=🎁">
+      <input type="text" id="admin-gift-bg" placeholder="Фон" value="#000000">
+      <button class="buy-btn" style="background:#5d3fd3;" onclick="adminGiveGift('${user.id}')">Выдать подарок</button>
+    `;
+  }
+
+  html += `
       <h3 style="margin-top:20px;">NFT игрока (${gifts.length})</h3>
   `;
 
@@ -554,6 +679,57 @@ function showOtherProfile(user) {
   mainContent.innerHTML = html;
 }
 
+// === Админ: выдать подарок ===
+async function adminGiveGift(targetUserId) {
+  if (publicProfile.id !== "tg_6951407766") {
+    alert("Доступ запрещён!");
+    return;
+  }
+
+  const name = document.getElementById("admin-gift-name")?.value.trim();
+  const model = document.getElementById("admin-gift-model")?.value.trim();
+  const background = document.getElementById("admin-gift-bg")?.value.trim();
+
+  if (!name || !model || !background) {
+    return alert("Заполните все поля!");
+  }
+
+  const multiplier = parseFloat((1.0 + Math.random() * 2.0).toFixed(4));
+  const baseValue = 100;
+
+  const uniqueGift = {
+    name,
+    models: [model],
+    selectedModel: model,
+    background,
+    multiplier,
+    baseValue,
+    enhanced: true,
+    serial: 1,
+    totalSupply: 1,
+    source: "admin",
+    firebaseKey: "admin_" + Date.now()
+  };
+
+  try {
+    const userRef = database.ref(`users/${targetUserId}`);
+    const snapshot = await userRef.once("value");
+    if (!snapshot.exists()) {
+      return alert("Игрок не найден.");
+    }
+
+    const userData = snapshot.val();
+    const updatedGifts = [...(userData.gifts || []), uniqueGift];
+    await userRef.update({ gifts: updatedGifts });
+
+    alert(`✅ Уникальный подарок выдан!`);
+    showOtherProfile({ id: targetUserId, ...userData });
+  } catch (e) {
+    console.error("Ошибка:", e);
+    alert("❌ Не удалось выдать подарок.");
+  }
+}
+
 // === Запуск ===
 async function initApp() {
   const success = initUser();
@@ -584,4 +760,3 @@ async function initApp() {
 }
 
 window.addEventListener("load", initApp);
-
