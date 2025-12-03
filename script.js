@@ -12,7 +12,7 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
-const BOT_USERNAME = "your_bot"; // ← ЗАМЕНИ НА ИМЯ ТВОЕГО БОТА!
+const BOT_USERNAME = "gifdexbot"; // ← ЗАМЕНИ НА ИМЯ ТВОЕГО БОТА!
 
 let publicProfile, userId, giftsDB = [], userDataLoaded = false;
 let currentBalance = { stars: 1000, fiton: 500 };
@@ -584,3 +584,4 @@ async function initApp() {
 }
 
 window.addEventListener("load", initApp);
+
