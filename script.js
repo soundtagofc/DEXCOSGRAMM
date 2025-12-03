@@ -249,9 +249,11 @@ function showCasesPage() {
   `;
 }
 
+// === ✅ ОСНОВНОЙ ПРОФИЛЬ: с поиском по нику и ID ===
 function showMyProfilePage() {
   const mainContent = document.getElementById("main-content");
   if (!mainContent) return;
+
   let html = `
     <div class="chat-header">
       <img src="${publicProfile.avatar}" alt="Аватар">
@@ -259,12 +261,19 @@ function showMyProfilePage() {
     </div>
     <div class="profile-section">
       <div class="balance-info">⭐ Stars: ${currentBalance.stars} | 💎 FITON: ${currentBalance.fiton}</div>
+      
       <h3>Редактировать профиль</h3>
       <input type="text" id="edit-username" value="${publicProfile.username}" placeholder="Никнейм">
       <input type="url" id="edit-avatar" value="${publicProfile.avatar}" placeholder="URL аватарки">
       <button class="buy-btn" onclick="saveProfileManually()">Сохранить</button>
+
+      <h3 style="margin-top:20px;">🔍 Найти игрока</h3>
+      <input type="text" id="search-query" placeholder="Никнейм или Telegram ID (без tg_)">
+      <button class="buy-btn" style="background:#4ecdc4;" onclick="searchProfile()">Найти</button>
+
       <h3 style="margin-top:20px;">Мои NFT (${currentGifts.length})</h3>
   `;
+
   if (currentGifts.length === 0) {
     html += `<p style="padding:20px;text-align:center;color:#aaa;">Нет подарков</p>`;
   } else {
@@ -277,7 +286,6 @@ function showMyProfilePage() {
       const priceClass = currentPrice > lastPrice ? "up" : currentPrice < lastPrice ? "down" : "";
       gift._last = currentPrice;
       const model = gift.selectedModel || (gift.models?.[0] || "https://placehold.co/70x70/444444/FFFFFF?text=?");
-      // ✅ Гарантируем, что фон есть
       const bg = gift.background || "var(--bg-tertiary)";
       const textColor = (bg === "#ffffff") ? "#000000" : "#ffffff";
       html += `
@@ -303,7 +311,7 @@ function showMyProfilePage() {
   mainContent.innerHTML = html;
 }
 
-// === ✅ ИСПРАВЛЕНО: Улучшение подарка — сразу применяется ===
+// === ✅ Улучшение подарка (исправлено) ===
 async function enhanceGift(i) {
   const g = currentGifts[i];
   if (!g || g.enhanced) return alert("Уже улучшено!");
@@ -335,7 +343,6 @@ async function enhanceGift(i) {
     background = "#ffffff";
   }
 
-  // ✅ Обязательно сохраняем фон
   g.background = background;
 
   if (typeof g.multiplier !== 'number') g.multiplier = 1.0;
@@ -344,7 +351,6 @@ async function enhanceGift(i) {
   await saveUserDataToFirebase();
   updateUI();
 
-  // ✅ Принудительное обновление через короткую задержку
   setTimeout(() => {
     showMyProfilePage();
   }, 100);
@@ -461,6 +467,91 @@ async function buyGift(key) {
   updateUI();
   alert(`✅ Куплено: ${gift.name}`);
   showGiftsPage();
+}
+
+// === 🔍 ПОИСК ПРОФИЛЯ ПО НИКУ ИЛИ ID ===
+async function searchProfile() {
+  const query = document.getElementById("search-query")?.value.trim();
+  if (!query) return alert("Введите никнейм или ID!");
+
+  const usersRef = database.ref("users");
+  const snapshot = await usersRef.once("value");
+  const users = snapshot.val() || {};
+
+  let targetUser = null;
+
+  // Сначала пробуем как ID
+  if (/^\d+$/.test(query)) {
+    const fullId = "tg_" + query;
+    if (users[fullId]) {
+      targetUser = { id: fullId, ...users[fullId] };
+    }
+  }
+
+  // Если не найдено — ищем по нику
+  if (!targetUser) {
+    for (const key in users) {
+      if (users[key].username === query) {
+        targetUser = { id: key, ...users[key] };
+        break;
+      }
+    }
+  }
+
+  if (!targetUser) {
+    alert("Игрок не найден.");
+    return;
+  }
+
+  showOtherProfile(targetUser);
+}
+
+// === 👤 ПРОСМОТР ЧУЖОГО ПРОФИЛЯ ===
+function showOtherProfile(user) {
+  const mainContent = document.getElementById("main-content");
+  if (!mainContent) return;
+
+  const gifts = user.gifts || [];
+  let html = `
+    <div class="chat-header">
+      <img src="${user.avatar}" alt="Аватар">
+      <div class="chat-title">Профиль: ${user.username}</div>
+    </div>
+    <div class="profile-section">
+      <div class="balance-info">⭐ NFT: ${gifts.length}</div>
+      <button class="buy-btn" onclick="showMyProfilePage()">← Назад к моему профилю</button>
+
+      <h3 style="margin-top:20px;">NFT игрока (${gifts.length})</h3>
+  `;
+
+  if (gifts.length === 0) {
+    html += `<p style="padding:20px;text-align:center;color:#aaa;">У игрока нет подарков</p>`;
+  } else {
+    html += `<div class="gifts-list">`;
+    gifts.forEach((gift, i) => {
+      const baseValue = gift.baseValue || 100;
+      const multiplier = typeof gift.multiplier === 'number' ? gift.multiplier : 1.0;
+      const currentPrice = Math.floor(baseValue * multiplier);
+      const model = gift.selectedModel || (gift.models?.[0] || "https://placehold.co/70x70/444444/FFFFFF?text=?");
+      const bg = gift.background || "var(--bg-tertiary)";
+      const textColor = (bg === "#ffffff") ? "#000000" : "#ffffff";
+
+      html += `
+        <div class="gift-card" style="background:${bg}; color: ${textColor};">
+          <img src="${model}" alt="${gift.name}">
+          <div class="gift-info">
+            <h4>${gift.name}</h4>
+            <div class="price">${currentPrice}⭐</div>
+            <div style="font-size:12px;color:#aaa;">${multiplier.toFixed(2)}x</div>
+            ${gift.enhanced ? `<div class="price">✅ Улучшен</div>` : ""}
+          </div>
+        </div>
+      `;
+    });
+    html += `</div>`;
+  }
+  html += `</div>`;
+  mainContent.innerHTML = html;
 }
 
 // === Запуск ===
