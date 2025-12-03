@@ -1,5 +1,4 @@
-//== bebebe ==//
-
+/* Бегущая строка */
 
 :root {
   --bg-primary: #121212;
@@ -269,3 +268,4 @@ body.dark {
   .nav-tabs { display: none; }
   .sidebar { /* если добавишь сайдбар */ }
 }
+
