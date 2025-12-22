@@ -1,32 +1,45 @@
-<!-- Модалка анимации кейса -->
-
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
-  <title>Telegram NFT Gifts</title>
+  <title>🎁 GifDex — Новогодние Подарки</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body class="dark">
-  <!-- Бегущая строка -->
+  <!-- Снег -->
+  <div id="snow-container"></div>
+  <script>
+    const snowContainer = document.getElementById("snow-container");
+    for (let i = 0; i < 60; i++) {
+      const flake = document.createElement("div");
+      flake.className = "snowflake";
+      flake.style.left = Math.random() * 100 + "vw";
+      flake.style.opacity = Math.random() * 0.5 + 0.3;
+      flake.style.width = Math.random() * 10 + 5 + "px";
+      flake.style.height = flake.style.width;
+      flake.style.animationDuration = Math.random() * 5 + 5 + "s";
+      flake.style.animationDelay = Math.random() * 5 + "s";
+      snowContainer.appendChild(flake);
+    }
+  </script>
+
+  <!-- Новогодний баннер -->
   <div class="marquee-banner">
-    <span>🔥 БЕТАТЕСТ ОТКРЫТ! 🔥 БЕТАТЕСТ ОТКРЫТ! 🔥 БЕТАТЕСТ ОТКРЫТ! 🔥</span>
+    <span>✨ С НОВЫМ ГОДОМ! ПОДАРКИ ДЛЯ ВСЕХ! ✨ С НОВЫМ ГОДОМ! ПОДАРКИ ДЛЯ ВСЕХ! ✨</span>
   </div>
 
   <div class="app-container">
-    <!-- Мобильные табы -->
     <div class="nav-tabs">
       <div class="nav-tab active" data-view="gifts">
         <div class="icon">🎁</div>
         <div>Магазин</div>
       </div>
       <div class="nav-tab" data-view="cases">
-        <div class="icon">📦</div>
+        <div class="icon">🎄</div>
         <div>Кейсы</div>
       </div>
       <div class="nav-tab" data-view="mining">
@@ -39,15 +52,16 @@
       </div>
     </div>
 
-    <!-- Основной контент -->
-    <main class="main-content" id="main-content"></main>
+    <main class="main-content" id="main-content">
+      <div style="padding: 20px; text-align: center; color: #aaa;">Загрузка...</div>
+    </main>
   </div>
 
-  <!-- Модалка анимации кейса -->
+  <!-- Модалка кейса -->
   <div id="case-modal" class="modal hidden">
     <div class="modal-content">
       <div class="case-animation">
-        <div class="case-box">📦</div>
+        <div class="case-box">🎁</div>
         <div class="sparkle">✨</div>
         <div class="sparkle">✨</div>
         <div class="sparkle">✨</div>
